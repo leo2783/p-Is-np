@@ -121,3 +121,14 @@ A Rust 2-SAT regression now captures each candidate query over
 all-variable occurrence, at least two clauses, and the m+n bound.
 This supplements the Lean proof without claiming a real time bound
 for the external counting machine.
+
+## Constructive witness from counted branch decisions
+
+The `unitWitness` function computes a Boolean assignment by reading
+the positive unit-clause membership of the final restricted CNF.
+The `paper_counting_extracted_witness` theorem shows that the
+assignment satisfies the original CNF when the original is satisfiable
+and the count oracle is correct on the full PaperEligible domain.
+The proof derives the presence of exactly one compatible unit value
+for each fixed variable from branch insertion, clause preservation,
+and the satisfiability invariant. No witness enumeration is used.

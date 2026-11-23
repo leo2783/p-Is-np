@@ -1335,6 +1335,172 @@ theorem paper_eligible_counting_work_bound {n k : ℕ}
     indices phi hbound
   simpa [hlen] using htotal
 
+
+/-!
+## Executable witness extraction from the final restricted CNF
+
+Each canonical branch inserts a positive or negative unit clause and
+normalization preserves membership. Every selected unit persists
+through later branches. Thus the final formula contains a unit for
+each fixed variable. Reading the positive-unit membership computes
+a concrete assignment, whose correctness follows from the proven
+satisfiability of the final formula; no witness enumeration is used.
+-/
+
+def unitWitness {n : ℕ} (phi : CNF n) (i : Fin n) : Bool :=
+  decide (([(i, true)] : Clause n) ∈ phi)
+
+theorem imposeCanonical_preserves_clause {n : ℕ}
+    (phi : CNF n) (i : Fin n) (bit : Bool)
+    (clause : Clause n) (hm : clause ∈ phi) :
+    clause ∈ imposeCanonical phi i bit := by
+  have hh : clause ∈ impose phi i bit := List.mem_cons_of_mem _ hm
+  simpa only [imposeCanonical, canonicalizeCNF, List.mem_dedup] using hh
+
+theorem chooseCanonicalBranch_preserves_clause {n : ℕ}
+    (query : CNF n → Bool) (phi : CNF n) (i : Fin n)
+    (clause : Clause n) (hm : clause ∈ phi) :
+    clause ∈ chooseCanonicalBranch query phi i := by
+  cases hq : query (imposeCanonical phi i false) with
+  | false =>
+      simpa [chooseCanonicalBranch, hq] using
+        imposeCanonical_preserves_clause phi i true clause hm
+  | true =>
+      simpa [chooseCanonicalBranch, hq] using
+        imposeCanonical_preserves_clause phi i false clause hm
+
+theorem canonicalRun_preserves_clause {n : ℕ}
+    (query : CNF n → Bool) :
+    ∀ (indices : List (Fin n)) (phi : CNF n)
+      (clause : Clause n),
+      clause ∈ phi →
+      clause ∈ (canonicalRun query phi indices).1 := by
+  intro indices
+  induction indices with
+  | nil =>
+      intro phi clause hm
+      simpa [canonicalRun] using hm
+  | cons i rest ih =>
+      intro phi clause hm
+      have hchild : clause ∈ chooseCanonicalBranch query phi i :=
+        chooseCanonicalBranch_preserves_clause query phi i clause hm
+      have hfinal :=
+        ih (chooseCanonicalBranch query phi i) clause hchild
+      simpa [canonicalRun] using hfinal
+
+theorem chooseCanonicalBranch_unit {n : ℕ}
+    (query : CNF n → Bool) (phi : CNF n) (i : Fin n) :
+    ∃ bit : Bool,
+      ([(i, bit)] : Clause n) ∈
+        chooseCanonicalBranch query phi i := by
+  cases hq : query (imposeCanonical phi i false) with
+  | false =>
+      refine ⟨true, ?_⟩
+      have hh : ([(i, true)] : Clause n) ∈ imposeCanonical phi i true := by
+        simp [imposeCanonical, canonicalizeCNF, impose]
+      simpa [chooseCanonicalBranch, hq] using hh
+  | true =>
+      refine ⟨false, ?_⟩
+      have hh : ([(i, false)] : Clause n) ∈ imposeCanonical phi i false := by
+        simp [imposeCanonical, canonicalizeCNF, impose]
+      simpa [chooseCanonicalBranch, hq] using hh
+
+theorem canonicalRun_has_unit {n : ℕ}
+    (query : CNF n → Bool) :
+    ∀ (indices : List (Fin n)) (phi : CNF n)
+      (i : Fin n), i ∈ indices →
+      ∃ bit : Bool,
+        ([(i, bit)] : Clause n) ∈
+          (canonicalRun query phi indices).1 := by
+  intro indices
+  induction indices with
+  | nil =>
+      intro phi i hmem
+      simp at hmem
+  | cons j rest ih =>
+      intro phi i hmem
+      rcases List.mem_cons.mp hmem with hij | htail
+      · subst i
+        obtain ⟨bit, hunit⟩ :=
+          chooseCanonicalBranch_unit query phi j
+        refine ⟨bit, ?_⟩
+        have hfinal := canonicalRun_preserves_clause query
+          rest (chooseCanonicalBranch query phi j)
+          ([(j, bit)] : Clause n) hunit
+        simpa [canonicalRun] using hfinal
+      · obtain ⟨bit, hfinal⟩ :=
+          ih (chooseCanonicalBranch query phi j) i htail
+        exact ⟨bit, by simpa [canonicalRun] using hfinal⟩
+
+theorem satisfied_unit_fixes_bit {n : ℕ}
+    (phi : CNF n) (a : Fin n → Bool)
+    (ha : evalCNF phi a = true)
+    (i : Fin n) (bit : Bool)
+    (hunit : ([(i, bit)] : Clause n) ∈ phi) :
+    a i = bit := by
+  have hall : ∀ clause, clause ∈ phi → evalClause clause a = true := by
+    simpa only [evalCNF, List.all_eq_true] using ha
+  have hclause : evalClause [(i, bit)] a = true := hall _ hunit
+  cases bit <;> cases hv : a i <;>
+    simp [evalClause, evalLiteral, hv] at hclause ⊢
+
+theorem unitWitness_agrees_with_model {n : ℕ}
+    (phi : CNF n) (a : Fin n → Bool)
+    (ha : evalCNF phi a = true)
+    (hunit : ∀ i : Fin n,
+      ∃ bit : Bool, ([(i, bit)] : Clause n) ∈ phi) :
+    ∀ i : Fin n, a i = unitWitness phi i := by
+  intro i
+  obtain ⟨bit, hm⟩ := hunit i
+  have hv : a i = bit :=
+    satisfied_unit_fixes_bit phi a ha i bit hm
+  cases bit with
+  | true =>
+      have hpos : ([(i, true)] : Clause n) ∈ phi := hm
+      simpa [unitWitness, hpos] using hv
+  | false =>
+      have hno : ¬ ([(i, true)] : Clause n) ∈ phi := by
+        intro hpos
+        have hpositive :=
+          satisfied_unit_fixes_bit phi a ha i true hpos
+        rw [hv] at hpositive
+        cases hpositive
+      simpa [unitWitness, hno] using hv
+
+theorem paper_counting_extracted_witness {n k : ℕ}
+    (count : CNF n → ℕ)
+    (hcount : ∀ psi, PaperEligible k psi →
+      count psi = paperCount psi)
+    (hk : 1 ≤ k) (phi : CNF n)
+    (hvalid : PaperEligible k phi)
+    (hsat : Satisfiable phi) :
+    evalCNF phi
+      (unitWitness
+        (canonicalRun (countDecision count) phi
+          (Finset.univ : Finset (Fin n)).toList).1) = true := by
+  let indices : List (Fin n) :=
+    (Finset.univ : Finset (Fin n)).toList
+  let result : CNF n :=
+    (canonicalRun (countDecision count) phi indices).1
+  have hsatFinal : Satisfiable result :=
+    canonicalRun_sat_paper (countDecision count)
+      (countDecision_paperEligible_correct count hcount)
+      hk indices phi hvalid hsat
+  obtain ⟨a, ha⟩ := hsatFinal
+  have hunit : ∀ i : Fin n,
+      ∃ bit : Bool, ([(i, bit)] : Clause n) ∈ result := by
+    intro i
+    exact canonicalRun_has_unit
+      (countDecision count) indices phi i (by simp [indices])
+  have hagree : a = unitWitness result := by
+    funext i
+    exact unitWitness_agrees_with_model result a ha hunit i
+  have hsource : evalCNF phi a = true :=
+    canonicalRun_entails
+      (countDecision count) indices phi a ha
+  rw [hagree] at hsource
+  exact hsource
+
 /-!
 ## Differential fixtures from the formally specified CNF evaluator
 
