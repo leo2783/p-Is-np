@@ -1,0 +1,35 @@
+name: Formal verification (Lean and Rust)
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Rust tests
+        run: cargo test --manifest-path rust/Cargo.toml --all-targets
+      - name: Rust experiments
+        run: cargo run --release --manifest-path rust/Cargo.toml
+  lean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
+          build: false
+      - name: Download Mathlib cache
+        run: |
+          lake update
+          lake exe cache get
+      - name: Elaborate and kernel-check all proof files
+        run: |
+          set -euo pipefail
+          for f in PvsNP.lean PvsNP_BlackBox.lean PvsNP_Counting.lean; do
+            lake env lean "$f"
+          done
