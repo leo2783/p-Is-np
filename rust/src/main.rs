@@ -90,15 +90,59 @@ fn exhaustive_tests() -> usize {
             let formula=[a,b,c];
             let result=solve_2sat(n,&formula);
             assert_eq!(result.is_some(),brute(n,&formula));
+            if n == 3 {
+                let hot: [Vec<bool>; 3] = [
+                    vec![true, false, false],
+                    vec![false, true, false],
+                    vec![false, false, true]
+                ];
+                let sat = |x: &[bool]| formula.iter().all(|(a,b)| a.eval(x) || b.eval(x));
+                if hot.iter().all(|x| sat(x)) {
+                    assert!(sat(&[false, false, false]),
+                        "2-CNF majority closure must hold");
+                }
+            }
             checked+=1;
         }}}
     }
     checked
 }
 
+
+fn verify_single_gate_parity_lower_bound() {
+    let parity = |bits: u32| bits.count_ones() % 2 == 1;
+    for wire in 0..3 {
+        assert!((0u32..8).any(|mask|
+            ((mask >> wire) & 1 != 0) != parity(mask)));
+    }
+    for a in 0..3 {
+        for b in 0..3 {
+            for table in 0..16u32 {
+                assert!((0u32..8).any(|mask| {
+                    let va = (mask >> a) & 1;
+                    let vb = (mask >> b) & 1;
+                    let gate_output = ((table >> (2 * va + vb)) & 1) != 0;
+                    gate_output != parity(mask)
+                }));
+            }
+        }
+    }
+}
+
+fn verify_shannon_n8_s10() {
+    let code_count = 18u128.checked_mul(5184u128.pow(10)).unwrap();
+    assert_eq!(code_count, 252303011164126931290527343657214803968u128);
+    assert!(code_count < u128::MAX);
+    // There are 2^256 Boolean functions of 8 bits; the code set
+    // contains fewer than 2^128 descriptions, so the pigeonhole
+    // lower bound follows without enumerating truth tables.
+}
+
 fn main() {
     assert_eq!(optimal_or_depth(16),16);
     assert_eq!(exhaustive_tests(),50_816);
+    verify_single_gate_parity_lower_bound();
+    verify_shannon_n8_s10();
     println!("PASS: black-box OR and 50,816 2-CNF instances");
 }
 
@@ -107,6 +151,10 @@ mod tests {
     use super::*;
     #[test] fn oracle() {for n in [0,1,2,4,8,16] {assert_eq!(optimal_or_depth(n),n);}}
     #[test] fn sat() {assert_eq!(exhaustive_tests(),50_816);}
+    #[test] fn parity_and_counting() {
+        verify_single_gate_parity_lower_bound();
+        verify_shannon_n8_s10();
+    }
     #[test] fn contradictory() {
         let a=Lit{variable:0,positive:true};
         assert!(solve_2sat(1,&[(a,a),(a.neg(),a.neg())]).is_none());
