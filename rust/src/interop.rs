@@ -61,7 +61,7 @@ fn lean_rust_semantics() {
     let mut rows = content.lines();
     assert_eq!(
         rows.next(),
-        Some("seed\tmask\tvariable\tbit\tcnf\tbefore\tafter\tcanonicalAfter\tcanonicalCount\trunValue\trunCount\trunCalls"),
+        Some("seed\tmask\tvariable\tbit\tcnf\tbefore\tafter\tcanonicalAfter\tcanonicalCount\trunValue\trunCount\trunCalls\tqueryWork"),
         "fixture header must match the cross-language protocol"
     );
     let mut checked = 0_usize;
@@ -70,7 +70,7 @@ fn lean_rust_semantics() {
 
     for line in rows {
         let fields: Vec<_> = line.split('\t').collect();
-        assert_eq!(fields.len(), 12, "malformed row: {line}");
+        assert_eq!(fields.len(), 13, "malformed row: {line}");
         let seed: usize = fields[0].parse().expect("seed");
         let mask: usize = fields[1].parse().expect("assignment mask");
         let variable: usize = fields[2].parse().expect("variable");
@@ -84,6 +84,7 @@ fn lean_rust_semantics() {
         let expected_run = read_bool(fields[9]);
         let expected_run_count: usize = fields[10].parse().expect("run clause count");
         let expected_run_calls: usize = fields[11].parse().expect("run oracle calls");
+        let expected_query_work: usize = fields[12].parse().expect("oracle query work");
         let assignment = std::array::from_fn(|i| ((mask >> i) & 1) == 1);
 
         let actual_original = eval_formula(&formula, &assignment);
@@ -126,6 +127,11 @@ fn lean_rust_semantics() {
             canonical.iter().enumerate().all(|(i, c)| !canonical[..i].contains(c)),
             "Rust normalization left duplicate clauses at seed={seed}"
         );
+        let query_work = syntactic_query_work(formula.clone(), 4);
+        assert_eq!(query_work, expected_query_work,
+            "Lean/Rust query work mismatch at seed={seed}");
+        assert!(query_work <= 4 * (formula.len() + 4).pow(2),
+            "query work exceeded monotone T(m)=m² bound at seed={seed}");
         let (run_formula, actual_run_calls) = run_canonical_syntactic(formula.clone(), 4);
         assert_eq!(actual_run_calls, expected_run_calls,
             "Lean/Rust oracle call count mismatch at seed={seed}");
@@ -325,4 +331,37 @@ fn two_sat_oracle_recovers_a_witness_without_enumeration() {
         }],
     ];
     assert!(!two_sat_query(n, &contradictory));
+}
+
+
+/// Aggregate work assigned to actual false-branch queries.
+/// The cost proxy is the squared number of clauses per query.
+/// This matches the Lean oracle-work definition; it is not CPU time.
+fn syntactic_query_work(mut formula: Vec<Vec<Literal>>, n: usize) -> usize {
+    let mut total = 0usize;
+    for variable in 0..n {
+        let mut false_branch = formula.clone();
+        false_branch.insert(
+            0,
+            vec![Literal {
+                variable,
+                positive: false,
+            }],
+        );
+        false_branch = normalize_clauses(&false_branch);
+        total += false_branch.len() * false_branch.len();
+        if false_branch.len().is_multiple_of(2) {
+            formula = false_branch;
+        } else {
+            formula.insert(
+                0,
+                vec![Literal {
+                    variable,
+                    positive: true,
+                }],
+            );
+            formula = normalize_clauses(&formula);
+        }
+    }
+    total
 }

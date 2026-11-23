@@ -1174,13 +1174,16 @@ private def encodeFixtureFormula (phi : CNF 4) : String :=
   | _ => String.intercalate ";" (phi.map encodeFixtureClause)
 
 def emitFixtures : IO Unit := do
-  IO.println "seed\tmask\tvariable\tbit\tcnf\tbefore\tafter\tcanonicalAfter\tcanonicalCount\trunValue\trunCount\trunCalls"
+  IO.println "seed\tmask\tvariable\tbit\tcnf\tbefore\tafter\tcanonicalAfter\tcanonicalCount\trunValue\trunCount\trunCalls\tqueryWork"
   for seed in List.range 96 do
     let phi := fixtureFormula seed
     let encoded := encodeFixtureFormula phi
     let runResult := fixtureRun phi
     let runCount := runResult.1.length
     let runCalls := runResult.2
+    let queryWork := canonicalQueryWork fixtureOracle
+      (fun psi => psi.length * psi.length) phi
+      ((List.range 4).map fixtureIndex)
     for mask in List.range 16 do
       let assignment := fixtureAssignment mask
       for column in List.range 4 do
@@ -1192,7 +1195,7 @@ def emitFixtures : IO Unit := do
           let canonicalAfter := evalCNF canonical assignment
           let canonicalCount := canonical.length
           let runValue := evalCNF runResult.1 assignment
-          IO.println s!"{seed}\t{mask}\t{column}\t{bit}\t{encoded}\t{before}\t{after}\t{canonicalAfter}\t{canonicalCount}\t{runValue}\t{runCount}\t{runCalls}"
+          IO.println s!"{seed}\t{mask}\t{column}\t{bit}\t{encoded}\t{before}\t{after}\t{canonicalAfter}\t{canonicalCount}\t{runValue}\t{runCount}\t{runCalls}\t{queryWork}"
 
 end PvsNP.UnitRestriction
 
