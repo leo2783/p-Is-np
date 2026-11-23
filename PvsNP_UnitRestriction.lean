@@ -373,6 +373,180 @@ theorem chooseCanonicalBranch_sat {n k : ℕ}
         hsplit.resolve_left hn
       simpa [hq] using ht
 
+
+/-!
+## Fully restricted valid-input self-reduction
+
+The recursive algorithm queries only the bounded-width, duplicate-free
+CNF domain. It needs exactly one decision-oracle call per fixed variable,
+and satisfying assignments of the final formula agree on all fixed bits.
+-/
+
+def canonicalRun {n : ℕ} (query : CNF n → Bool) :
+    CNF n → List (Fin n) → CNF n × ℕ
+  | phi, [] => (phi, 0)
+  | phi, i :: rest =>
+      let result := canonicalRun query (chooseCanonicalBranch query phi i) rest
+      (result.1, result.2 + 1)
+
+theorem canonicalRun_valid {n k : ℕ}
+    (query : CNF n → Bool) (hk : 1 ≤ k) :
+    ∀ (indices : List (Fin n)) (phi : CNF n),
+      WidthNodup k phi →
+      WidthNodup k (canonicalRun query phi indices).1 := by
+  intro indices
+  induction indices with
+  | nil =>
+      intro phi h
+      simpa [canonicalRun] using h
+  | cons i rest ih =>
+      intro phi h
+      have hnext := chooseCanonicalBranch_widthNodup query phi i hk h
+      simpa [canonicalRun] using ih (chooseCanonicalBranch query phi i) hnext
+
+theorem canonicalRun_sat {n k : ℕ}
+    (query : CNF n → Bool)
+    (hquery : ∀ phi, WidthNodup k phi →
+      (query phi = true ↔ Satisfiable phi))
+    (hk : 1 ≤ k) :
+    ∀ (indices : List (Fin n)) (phi : CNF n),
+      WidthNodup k phi → Satisfiable phi →
+      Satisfiable (canonicalRun query phi indices).1 := by
+  intro indices
+  induction indices with
+  | nil =>
+      intro phi _ hsat
+      simpa [canonicalRun] using hsat
+  | cons i rest ih =>
+      intro phi hvalid hsat
+      have hnextValid := chooseCanonicalBranch_widthNodup query phi i hk hvalid
+      have hnextSat :=
+        chooseCanonicalBranch_sat query hquery phi i hk hvalid hsat
+      simpa [canonicalRun] using
+        ih (chooseCanonicalBranch query phi i) hnextValid hnextSat
+
+theorem canonicalRun_calls {n : ℕ} (query : CNF n → Bool) :
+    ∀ (indices : List (Fin n)) (phi : CNF n),
+      (canonicalRun query phi indices).2 = indices.length := by
+  intro indices
+  induction indices with
+  | nil =>
+      intro phi
+      rfl
+  | cons i rest ih =>
+      intro phi
+      calc
+        (canonicalRun query phi (i :: rest)).2 =
+            (canonicalRun query (chooseCanonicalBranch query phi i) rest).2 + 1 := by
+              simp [canonicalRun]
+        _ = rest.length + 1 := by rw [ih]
+        _ = (i :: rest).length := by simp
+
+theorem canonicalBranch_entails {n : ℕ} (query : CNF n → Bool)
+    (phi : CNF n) (i : Fin n) (a : Fin n → Bool)
+    (ha : evalCNF (chooseCanonicalBranch query phi i) a = true) :
+    evalCNF phi a = true := by
+  cases hq : query (imposeCanonical phi i false) with
+  | false =>
+      have h : evalCNF (imposeCanonical phi i true) a = true := by
+        simpa [chooseCanonicalBranch, hq] using ha
+      exact ((imposeCanonical_eval_true_iff phi i true a).mp h).1
+  | true =>
+      have h : evalCNF (imposeCanonical phi i false) a = true := by
+        simpa [chooseCanonicalBranch, hq] using ha
+      exact ((imposeCanonical_eval_true_iff phi i false a).mp h).1
+
+theorem canonicalBranch_agreement {n : ℕ} (query : CNF n → Bool)
+    (phi : CNF n) (i : Fin n) (a b : Fin n → Bool)
+    (ha : evalCNF (chooseCanonicalBranch query phi i) a = true)
+    (hb : evalCNF (chooseCanonicalBranch query phi i) b = true) :
+    a i = b i := by
+  cases hq : query (imposeCanonical phi i false) with
+  | false =>
+      have ha' : evalCNF (imposeCanonical phi i true) a = true := by
+        simpa [chooseCanonicalBranch, hq] using ha
+      have hb' : evalCNF (imposeCanonical phi i true) b = true := by
+        simpa [chooseCanonicalBranch, hq] using hb
+      exact ((imposeCanonical_eval_true_iff phi i true a).mp ha').2.trans
+        (((imposeCanonical_eval_true_iff phi i true b).mp hb').2).symm
+  | true =>
+      have ha' : evalCNF (imposeCanonical phi i false) a = true := by
+        simpa [chooseCanonicalBranch, hq] using ha
+      have hb' : evalCNF (imposeCanonical phi i false) b = true := by
+        simpa [chooseCanonicalBranch, hq] using hb
+      exact ((imposeCanonical_eval_true_iff phi i false a).mp ha').2.trans
+        (((imposeCanonical_eval_true_iff phi i false b).mp hb').2).symm
+
+theorem canonicalRun_entails {n : ℕ} (query : CNF n → Bool) :
+    ∀ (indices : List (Fin n)) (phi : CNF n) (a : Fin n → Bool),
+      evalCNF (canonicalRun query phi indices).1 a = true →
+      evalCNF phi a = true := by
+  intro indices
+  induction indices with
+  | nil =>
+      intro phi a h
+      simpa [canonicalRun] using h
+  | cons i rest ih =>
+      intro phi a h
+      have hchild :
+          evalCNF (chooseCanonicalBranch query phi i) a = true :=
+        ih (chooseCanonicalBranch query phi i) a
+          (by simpa [canonicalRun] using h)
+      exact canonicalBranch_entails query phi i a hchild
+
+theorem canonicalRun_agreement {n : ℕ} (query : CNF n → Bool) :
+    ∀ (indices : List (Fin n)) (phi : CNF n) (a b : Fin n → Bool),
+      evalCNF (canonicalRun query phi indices).1 a = true →
+      evalCNF (canonicalRun query phi indices).1 b = true →
+      ∀ i, i ∈ indices → a i = b i := by
+  intro indices
+  induction indices with
+  | nil =>
+      intro phi a b ha hb i hi
+      simp at hi
+  | cons j rest ih =>
+      intro phi a b ha hb i hi
+      have ha' :
+          evalCNF (canonicalRun query (chooseCanonicalBranch query phi j) rest).1 a = true := by
+        simpa [canonicalRun] using ha
+      have hb' :
+          evalCNF (canonicalRun query (chooseCanonicalBranch query phi j) rest).1 b = true := by
+        simpa [canonicalRun] using hb
+      rcases List.mem_cons.mp hi with hij | hrest
+      · subst i
+        have hfirstA : evalCNF (chooseCanonicalBranch query phi j) a = true :=
+          canonicalRun_entails query rest (chooseCanonicalBranch query phi j) a ha'
+        have hfirstB : evalCNF (chooseCanonicalBranch query phi j) b = true :=
+          canonicalRun_entails query rest (chooseCanonicalBranch query phi j) b hb'
+        exact canonicalBranch_agreement query phi j a b hfirstA hfirstB
+      · exact ih (chooseCanonicalBranch query phi j) a b ha' hb' i hrest
+
+theorem canonical_full_search {n k : ℕ}
+    (query : CNF n → Bool)
+    (hquery : ∀ phi, WidthNodup k phi →
+      (query phi = true ↔ Satisfiable phi))
+    (hk : 1 ≤ k) (phi : CNF n)
+    (hvalid : WidthNodup k phi) (hsat : Satisfiable phi) :
+    WidthNodup k
+        (canonicalRun query phi (Finset.univ : Finset (Fin n)).toList).1 ∧
+    Satisfiable
+        (canonicalRun query phi (Finset.univ : Finset (Fin n)).toList).1 ∧
+    (canonicalRun query phi (Finset.univ : Finset (Fin n)).toList).2 = n ∧
+    ∀ a b : Fin n → Bool,
+      evalCNF (canonicalRun query phi (Finset.univ : Finset (Fin n)).toList).1 a = true →
+      evalCNF (canonicalRun query phi (Finset.univ : Finset (Fin n)).toList).1 b = true →
+      ∀ i : Fin n, a i = b i := by
+  let vars : List (Fin n) := (Finset.univ : Finset (Fin n)).toList
+  have hlen : vars.length = n := by simp [vars]
+  constructor
+  · exact canonicalRun_valid query hk vars phi hvalid
+  constructor
+  · exact canonicalRun_sat query hquery hk vars phi hvalid hsat
+  constructor
+  · simpa [hlen] using canonicalRun_calls query vars phi
+  · intro a b ha hb i
+    exact canonicalRun_agreement query vars phi a b ha hb i (by simp [vars])
+
 /-!
 ## Differential fixtures from the formally specified CNF evaluator
 

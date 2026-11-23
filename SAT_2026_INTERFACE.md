@@ -28,8 +28,10 @@ counterexample establishes the failure of raw impose to preserve Nodup.
 
 The formal WidthNodup predicate exactly mirrors the syntactic k-CNF conditions.
 The canonical_sat_split theorem and chooseCanonicalBranch_sat require a correct
-decision oracle only on valid WidthNodup formulas, and prove that its queries
-always stay inside the accepted domain (given k >= 1).
+decision oracle only on valid WidthNodup formulas. The recursive canonicalRun
+and canonical_full_search extend this domain guarantee through every query,
+preserve satisfiability, use exactly n oracle calls, and prove uniqueness
+of the final satisfying assignment on all original n variables (k >= 1).
 
 An independent Rust regression test witnesses that boundary and checks
 normalization on all assignments of its small fixture. The CI also runs
