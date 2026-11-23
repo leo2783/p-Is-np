@@ -146,4 +146,48 @@ theorem exponential_or_optimal (n : ℕ) :
     (∀ t : Tree (2 ^ n), SolvesOR t → 2 ^ n ≤ height t) :=
   deterministic_or_optimal (2 ^ n)
 
+
+/-!
+## General zero-input sensitivity lower bound
+
+The OR lower bound is one instance of a more general theorem: if flipping
+any one input bit at zero changes a function's answer, every correct
+deterministic black-box decision tree has depth at least n.
+-/
+def ZeroInputSensitive {n : ℕ}
+    (f : (Fin n → Bool) → Bool) : Prop :=
+  ∀ k : Fin n, f (spike k) ≠ f zeroInput
+
+theorem full_zero_sensitivity_requires_linear_depth {n : ℕ}
+    (f : (Fin n → Bool) → Bool)
+    (hf : ZeroInputSensitive f)
+    (t : Tree n)
+    (hcorrect : ∀ x, eval t x = f x) :
+    n ≤ height t := by
+  have hqueries : ∀ k : Fin n, k ∈ zeroQueries t := by
+    intro k
+    by_contra hk
+    have hsame : eval t (spike k) = eval t zeroInput := by
+      apply eval_same_of_zero_queries
+      intro i hi
+      have hne : i ≠ k := by
+        intro e
+        apply hk
+        exact e ▸ hi
+      simp [spike, hne]
+    apply hf k
+    calc
+      f (spike k) = eval t (spike k) := (hcorrect _).symm
+      _ = eval t zeroInput := hsame
+      _ = f zeroInput := hcorrect _
+  classical
+  have hsub : (Finset.univ : Finset (Fin n)) ⊆ (zeroQueries t).toFinset := by
+    intro k _
+    simpa using hqueries k
+  calc
+    n = (Finset.univ : Finset (Fin n)).card := by simp
+    _ ≤ (zeroQueries t).toFinset.card := Finset.card_le_card hsub
+    _ ≤ (zeroQueries t).length := List.toFinset_card_le (zeroQueries t)
+    _ ≤ height t := zero_queries_le_height t
+
 end PvsNP.BlackBox
