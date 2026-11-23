@@ -84,6 +84,13 @@ lake env lean PvsNP_FormalClasses.lean
 cargo test --manifest-path rust/Cargo.toml
 ```
 
+## Prior art and score tracking
+
+See [PRIOR_ART.md](PRIOR_ART.md) for pre-2026 foundational results,
+precise correspondence to the Lean files, library-import status, and
+an evidence-based score ledger. Prior literature must be cited or
+reused before future equivalent proofs are described as new results.
+
 ## The remaining mathematical gap
 
 Proving that **SAT has no deterministic polynomial-time decider** would
