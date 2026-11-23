@@ -82,4 +82,23 @@ theorem three_bit_parity_not_representable_by_2CNF (cs : List Clause) :
     simpa [parity_zero] using congrFun h zero
   cases hzero.symm.trans hz
 
+
+/-!
+The same three-bit parity function does have a 3-CNF representation:
+one clause excludes each of the four even-parity assignments.
+-/
+def oddParity3CNF (x : Fin 3 → Bool) : Bool :=
+  (x 0 || x 1 || x 2) &&
+  (x 0 || !(x 1) || !(x 2)) &&
+  (!(x 0) || x 1 || !(x 2)) &&
+  (!(x 0) || !(x 1) || x 2)
+
+theorem three_bit_parity_representable_by_3CNF :
+    oddParity3CNF = parity3 := by
+  funext x
+  cases h0 : x 0 <;>
+    cases h1 : x 1 <;>
+    cases h2 : x 2 <;>
+    simp [oddParity3CNF, parity3, h0, h1, h2]
+
 end PvsNP.TwoCNF
