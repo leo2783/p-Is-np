@@ -843,7 +843,6 @@ theorem canonicalQueries_length {n : ℕ} (query : CNF n → Bool) :
       intro phi
       simp only [canonicalQueries, List.length_cons]
       rw [ih]
-      rfl
 
 theorem canonicalQueries_paper_preconditions {n k : ℕ}
     (query : CNF n → Bool) (hk : 1 ≤ k) :
