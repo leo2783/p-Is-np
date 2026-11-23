@@ -259,12 +259,12 @@ def emitFixtures : IO Unit := do
     let encoded := encodeFixtureFormula phi
     for mask in List.range 16 do
       let assignment := fixtureAssignment mask
-      for variable in List.range 4 do
-        let i := fixtureIndex variable
+      for column in List.range 4 do
+        let i := fixtureIndex column
         for bit in ([false, true] : List Bool) do
           let before := evalCNF phi assignment
           let after := evalCNF (impose phi i bit) assignment
-          IO.println s!"{seed}\t{mask}\t{variable}\t{bit}\t{encoded}\t{before}\t{after}"
+          IO.println s!"{seed}\t{mask}\t{column}\t{bit}\t{encoded}\t{before}\t{after}"
 
 end PvsNP.UnitRestriction
 
