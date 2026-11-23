@@ -13,6 +13,13 @@ https://github.com/anthropics/formal-math/blob/main/eth/MainResults.lean
 
 ## Boundary identified and repaired locally
 
+The new evalLiteral_paper_spec, evalClause_paper_spec, evalCNF_paper_spec,
+and satisfiable_paper_iff theorems establish the exact equivalence between
+the paper's existential literal/clause SAT semantics and this project's
+Boolean evaluator for every input. The canonical_search_paper_semantics
+theorem transfers the complete n-query canonical reduction into the
+paper-style satisfiability predicate, including the m+n clause-size bound.
+
 The paper uses the Boolean CNF type List (List (Fin n × Bool)), identical
 to PvsNP.UnitRestriction.CNF n. Its IsKCNF predicate requires every clause
 to have width at most k and the clause list to be Nodup.

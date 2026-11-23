@@ -730,6 +730,87 @@ theorem canonical_full_run_size_bound {n : ℕ}
     (Finset.univ : Finset (Fin n)).toList phi
   simpa using h
 
+
+/-!
+## Exact semantic bridge to the 2026 counting-paper SAT definitions
+
+The paper formulates satisfiability with existential witnesses per
+clause. Our executable specification uses Boolean any/all evaluation.
+This proves equivalence for every CNF and every Boolean assignment.
+It does not rely on tests or on an unverified external proof term.
+-/
+
+theorem evalLiteral_paper_spec {n : ℕ}
+    (lit : Literal n) (a : Fin n → Bool) :
+    evalLiteral lit a = true ↔ a lit.1 = lit.2 := by
+  rcases lit with ⟨i, bit⟩
+  cases bit <;> cases ha : a i <;>
+    simp [evalLiteral, ha]
+
+theorem evalClause_paper_spec {n : ℕ}
+    (clause : Clause n) (a : Fin n → Bool) :
+    evalClause clause a = true ↔
+      ∃ lit : Literal n, lit ∈ clause ∧ a lit.1 = lit.2 := by
+  simp only [evalClause, List.any_eq_true]
+  constructor
+  · rintro ⟨lit, hmem, htrue⟩
+    exact ⟨lit, hmem, (evalLiteral_paper_spec lit a).mp htrue⟩
+  · rintro ⟨lit, hmem, htrue⟩
+    exact ⟨lit, hmem, (evalLiteral_paper_spec lit a).mpr htrue⟩
+
+theorem evalCNF_paper_spec {n : ℕ}
+    (phi : CNF n) (a : Fin n → Bool) :
+    evalCNF phi a = true ↔
+      ∀ clause : Clause n, clause ∈ phi →
+        ∃ lit : Literal n, lit ∈ clause ∧ a lit.1 = lit.2 := by
+  simp only [evalCNF, List.all_eq_true]
+  constructor
+  · intro h clause hc
+    exact (evalClause_paper_spec clause a).mp (h clause hc)
+  · intro h clause hc
+    exact (evalClause_paper_spec clause a).mpr (h clause hc)
+
+def PaperSatisfiable {n : ℕ} (phi : CNF n) : Prop :=
+  ∃ a : Fin n → Bool, ∀ clause : Clause n, clause ∈ phi →
+    ∃ lit : Literal n, lit ∈ clause ∧ a lit.1 = lit.2
+
+theorem satisfiable_paper_iff {n : ℕ} (phi : CNF n) :
+    Satisfiable phi ↔ PaperSatisfiable phi := by
+  constructor
+  · rintro ⟨a, ha⟩
+    exact ⟨a, (evalCNF_paper_spec phi a).mp ha⟩
+  · rintro ⟨a, ha⟩
+    exact ⟨a, (evalCNF_paper_spec phi a).mpr ha⟩
+
+theorem canonical_search_paper_semantics {n k : ℕ}
+    (query : CNF n → Bool)
+    (hquery : ∀ phi, WidthNodup k phi →
+      (query phi = true ↔ PaperSatisfiable phi))
+    (hk : 1 ≤ k)
+    (phi : CNF n)
+    (hvalid : WidthNodup k phi)
+    (hsat : PaperSatisfiable phi) :
+    PaperSatisfiable
+      (canonicalRun query phi (Finset.univ : Finset (Fin n)).toList).1 ∧
+    (canonicalRun query phi (Finset.univ : Finset (Fin n)).toList).2 = n ∧
+    (canonicalRun query phi (Finset.univ : Finset (Fin n)).toList).1.length ≤
+      phi.length + n := by
+  have hquery' : ∀ psi, WidthNodup k psi →
+      (query psi = true ↔ Satisfiable psi) := by
+    intro psi hv
+    exact (hquery psi hv).trans (satisfiable_paper_iff psi).symm
+  have hsat' : Satisfiable phi := (satisfiable_paper_iff phi).mpr hsat
+  constructor
+  · have h :=
+      canonicalRun_sat query hquery' hk
+        (Finset.univ : Finset (Fin n)).toList phi hvalid hsat'
+    exact (satisfiable_paper_iff _).mp h
+  constructor
+  · have h :=
+      canonical_full_search query hquery' hk phi hvalid hsat'
+    exact h.2.2.1
+  · exact canonical_full_run_size_bound query phi
+
 /-!
 ## Differential fixtures from the formally specified CNF evaluator
 
