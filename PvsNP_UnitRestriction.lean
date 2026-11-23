@@ -1028,6 +1028,111 @@ theorem counting_oracle_all_queries_valid {n k : ℕ}
   exact all_canonical_queries_paper_ready
     (countDecision count) phi hk hvalid hall htwo
 
+
+/-!
+## Query-cost accounting for the 2026 counting oracle interface
+
+For an arbitrary cost assigned to each actual query, the sum of the
+costs is bounded by the query count times any uniform upper bound.
+A monotone per-instance cost function T(m) gives n * T(m+n) for the
+n-step canonical trace. This accounts for oracle calls only; machine
+simulation and query preparation have not been charged here.
+-/
+
+def canonicalQueryWork {n : ℕ}
+    (query : CNF n → Bool) (work : CNF n → ℕ)
+    (phi : CNF n) (indices : List (Fin n)) : ℕ :=
+  ((canonicalQueries query phi indices).map work).sum
+
+theorem canonicalQueryWork_uniform_bound {n : ℕ}
+    (query : CNF n → Bool) (work : CNF n → ℕ) (B : ℕ) :
+    ∀ (indices : List (Fin n)) (phi : CNF n),
+      (∀ psi, psi ∈ canonicalQueries query phi indices → work psi ≤ B) →
+      canonicalQueryWork query work phi indices ≤ indices.length * B := by
+  intro indices
+  induction indices with
+  | nil =>
+      intro phi _
+      simp [canonicalQueryWork, canonicalQueries]
+  | cons i rest ih =>
+      intro phi hbound
+      have hfirst : work (imposeCanonical phi i false) ≤ B :=
+        hbound _ (by simp [canonicalQueries])
+      have hrest : ∀ psi,
+          psi ∈ canonicalQueries query
+            (chooseCanonicalBranch query phi i) rest → work psi ≤ B := by
+        intro psi hm
+        apply hbound psi
+        simp [canonicalQueries, hm]
+      calc
+        canonicalQueryWork query work phi (i :: rest) =
+            work (imposeCanonical phi i false) +
+            canonicalQueryWork query work
+              (chooseCanonicalBranch query phi i) rest := by
+                rfl
+        _ ≤ B + rest.length * B :=
+          Nat.add_le_add hfirst (ih _ hrest)
+        _ = (i :: rest).length * B := by
+          simp [Nat.succ_mul, Nat.add_comm]
+
+theorem canonicalQueryWork_size_bound {n : ℕ}
+    (query : CNF n → Bool)
+    (work : CNF n → ℕ) (T : ℕ → ℕ)
+    (hwork : ∀ psi, work psi ≤ T psi.length)
+    (hmono : Monotone T) (phi : CNF n)
+    (indices : List (Fin n)) :
+    canonicalQueryWork query work phi indices ≤
+      indices.length * T (phi.length + indices.length) := by
+  apply canonicalQueryWork_uniform_bound query work
+    (T (phi.length + indices.length)) indices phi
+  intro psi hmem
+  exact (hwork psi).trans
+    (hmono (canonicalQueries_size_bound query indices phi psi hmem))
+
+theorem all_canonical_queries_work_bound {n : ℕ}
+    (query : CNF n → Bool)
+    (work : CNF n → ℕ) (T : ℕ → ℕ)
+    (hwork : ∀ psi, work psi ≤ T psi.length)
+    (hmono : Monotone T) (phi : CNF n) :
+    canonicalQueryWork query work phi
+      (Finset.univ : Finset (Fin n)).toList ≤
+      n * T (phi.length + n) := by
+  have h := canonicalQueryWork_size_bound query work T hwork hmono phi
+    (Finset.univ : Finset (Fin n)).toList
+  simpa using h
+
+theorem counting_oracle_work_bound {n k : ℕ}
+    (count : CNF n → ℕ) (work : CNF n → ℕ)
+    (T : ℕ → ℕ)
+    (hwork : ∀ psi, WidthNodup k psi → work psi ≤ T psi.length)
+    (hmono : Monotone T) (phi : CNF n)
+    (hk : 1 ≤ k) (hvalid : WidthNodup k phi)
+    (hall : AllVariablesOccur phi)
+    (htwo : HasTwoDistinctClauses phi) :
+    canonicalQueryWork (countDecision count) work phi
+      (Finset.univ : Finset (Fin n)).toList ≤
+      n * T (phi.length + n) := by
+  have hbound : ∀ psi,
+      psi ∈ canonicalQueries (countDecision count) phi
+        (Finset.univ : Finset (Fin n)).toList →
+      work psi ≤ T (phi.length + n) := by
+    intro psi hm
+    have hp :=
+      (canonicalQueries_paper_preconditions
+        (countDecision count) hk
+        (Finset.univ : Finset (Fin n)).toList
+        phi hvalid hall htwo psi hm).1
+    have hsize := canonicalQueries_size_bound
+      (countDecision count)
+      (Finset.univ : Finset (Fin n)).toList phi psi hm
+    have hlen :
+        ((Finset.univ : Finset (Fin n)).toList.length) = n := by simp
+    exact (hwork psi hp).trans (hmono (by simpa [hlen] using hsize))
+  have h := canonicalQueryWork_uniform_bound
+    (countDecision count) work (T (phi.length + n))
+    (Finset.univ : Finset (Fin n)).toList phi hbound
+  simpa using h
+
 /-!
 ## Differential fixtures from the formally specified CNF evaluator
 

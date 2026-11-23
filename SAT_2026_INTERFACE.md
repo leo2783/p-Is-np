@@ -75,3 +75,19 @@ characterization yields `countDecision_correct`, while
 theorem to any count oracle that correctly counts valid k-CNF inputs.
 This is conditional on the counting oracle; it does not establish the
 external algorithm's Turing-machine time bound.
+
+## Counting-oracle aggregate resource bound
+
+The verified `canonicalQueries` trace now has a cost-accounting
+interface, `canonicalQueryWork`, that sums per-query costs. Its
+uniform and monotone-size theorems give the exact bound
+`n * T(m+n)` for the n oracle calls, if an accepted k-CNF query of
+length m costs no more than the nondecreasing function T(m).
+The theorem `counting_oracle_work_bound` ensures the cost
+assumption is applied only to valid bounded-width and duplicate-free
+query instances, using the previously proved trace invariants.
+
+This is an oracle-work bound; producing input encodings and
+simulating the paper's counting machine still require an explicit
+time model. Therefore this result does not assert a standalone
+subexponential algorithm or resolve P versus NP.
