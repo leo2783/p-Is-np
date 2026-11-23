@@ -87,6 +87,12 @@ See [SAT_2026_INTERFACE.md](SAT_2026_INTERFACE.md) for the 2026
 subexponential 3-SAT result and kernel-checked unit-clause normalization
 that preserves its distinct-clause input precondition.
 
+The verified `canonicalQueries` trace also records every queried
+false-branch CNF. The `all_canonical_queries_paper_ready` theorem
+establishes exactly `n` queries, their k-CNF and distinct-clause
+preconditions, all-variable occurrence and at least two clauses, and
+the uniform `m+n` size bound for every intermediate oracle input.
+
 ## Independent executable checks
 
 `rust/src/main.rs` tests deterministic OR minimax complexity,

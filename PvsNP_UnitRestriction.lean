@@ -811,6 +811,127 @@ theorem canonical_search_paper_semantics {n k : ℕ}
     exact h.2.2.1
   · exact canonical_full_run_size_bound query phi
 
+
+/-!
+## Query-by-query compatibility with bounded k-CNF counting inputs
+
+The existing final-formula guarantees do not by themselves certify
+each intermediate oracle query. This trace explicitly lists the actual
+false-branch candidates that the greedy reduction asks about.
+Each member satisfies the width, duplicate-free, variable-occurrence,
+and two-clause conditions required by the 2026 k-CNF interface when
+the source input does. Its clause count is bounded by m plus the
+number of variables fixed in the full run.
+-/
+
+def canonicalQueries {n : ℕ} (query : CNF n → Bool) :
+    CNF n → List (Fin n) → List (CNF n)
+  | _, [] => []
+  | phi, i :: rest =>
+      imposeCanonical phi i false ::
+        canonicalQueries query (chooseCanonicalBranch query phi i) rest
+
+theorem canonicalQueries_length {n : ℕ} (query : CNF n → Bool) :
+    ∀ (indices : List (Fin n)) (phi : CNF n),
+      (canonicalQueries query phi indices).length = indices.length := by
+  intro indices
+  induction indices with
+  | nil =>
+      intro phi
+      rfl
+  | cons i rest ih =>
+      intro phi
+      simp only [canonicalQueries, List.length_cons]
+      rw [ih]
+      rfl
+
+theorem canonicalQueries_paper_preconditions {n k : ℕ}
+    (query : CNF n → Bool) (hk : 1 ≤ k) :
+    ∀ (indices : List (Fin n)) (phi : CNF n),
+      WidthNodup k phi →
+      AllVariablesOccur phi →
+      HasTwoDistinctClauses phi →
+      ∀ psi, psi ∈ canonicalQueries query phi indices →
+        WidthNodup k psi ∧
+        AllVariablesOccur psi ∧
+        2 ≤ psi.length := by
+  intro indices
+  induction indices with
+  | nil =>
+      intro phi _ _ _ psi hmem
+      simp [canonicalQueries] at hmem
+  | cons i rest ih =>
+      intro phi hvalid hall htwo psi hmem
+      have hcases :
+          psi = imposeCanonical phi i false ∨
+          psi ∈ canonicalQueries query
+            (chooseCanonicalBranch query phi i) rest := by
+        simpa [canonicalQueries] using hmem
+      rcases hcases with rfl | hrest
+      · constructor
+        · exact imposeCanonical_widthNodup phi i false hk hvalid
+        constructor
+        · exact imposeCanonical_allVariablesOccur phi i false hall
+        · apply twoDistinct_minClauses
+          exact imposeCanonical_twoDistinct phi i false htwo
+      · have hnextValid :=
+          chooseCanonicalBranch_widthNodup query phi i hk hvalid
+        have hnextOccur :=
+          canonicalBranch_allVariablesOccur query phi i hall
+        have hnextTwo :=
+          canonicalBranch_twoDistinct query phi i htwo
+        exact ih (chooseCanonicalBranch query phi i)
+          hnextValid hnextOccur hnextTwo psi hrest
+
+theorem canonicalQueries_size_bound {n : ℕ}
+    (query : CNF n → Bool) :
+    ∀ (indices : List (Fin n)) (phi : CNF n),
+      ∀ psi, psi ∈ canonicalQueries query phi indices →
+        psi.length ≤ phi.length + indices.length := by
+  intro indices
+  induction indices with
+  | nil =>
+      intro phi psi hmem
+      simp [canonicalQueries] at hmem
+  | cons i rest ih =>
+      intro phi psi hmem
+      have hcases :
+          psi = imposeCanonical phi i false ∨
+          psi ∈ canonicalQueries query
+            (chooseCanonicalBranch query phi i) rest := by
+        simpa [canonicalQueries] using hmem
+      rcases hcases with rfl | hrest
+      · have hsize := imposeCanonical_length_le phi i false
+        simp only [List.length_cons]
+        omega
+      · have htail := ih (chooseCanonicalBranch query phi i) psi hrest
+        have hstep := chooseCanonicalBranch_length_le query phi i
+        simp only [List.length_cons]
+        omega
+
+theorem all_canonical_queries_paper_ready {n k : ℕ}
+    (query : CNF n → Bool) (phi : CNF n)
+    (hk : 1 ≤ k) (hvalid : WidthNodup k phi)
+    (hall : AllVariablesOccur phi)
+    (htwo : HasTwoDistinctClauses phi) :
+    (canonicalQueries query phi
+      (Finset.univ : Finset (Fin n)).toList).length = n ∧
+    ∀ psi, psi ∈ canonicalQueries query phi
+        (Finset.univ : Finset (Fin n)).toList →
+      WidthNodup k psi ∧ AllVariablesOccur psi ∧
+      2 ≤ psi.length ∧ psi.length ≤ phi.length + n := by
+  let indices : List (Fin n) := (Finset.univ : Finset (Fin n)).toList
+  have hlen : indices.length = n := by simp [indices]
+  constructor
+  · simpa [hlen] using canonicalQueries_length query indices phi
+  · intro psi hmem
+    obtain ⟨hwidth, hoccur, htwo'⟩ :=
+      canonicalQueries_paper_preconditions query hk indices phi
+        hvalid hall htwo psi hmem
+    refine ⟨hwidth, hoccur, htwo', ?_⟩
+    have hsize := canonicalQueries_size_bound query indices phi psi hmem
+    simpa [hlen] using hsize
+
 /-!
 ## Differential fixtures from the formally specified CNF evaluator
 
