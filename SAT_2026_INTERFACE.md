@@ -45,6 +45,10 @@ The new AllVariablesOccur and HasTwoDistinctClauses predicates have been
 formally shown to survive every canonical restriction. The final
 canonicalRun_paper_preconditions theorem combines these invariants with
 WidthNodup and derives that the resulting formula still has >= 2 clauses.
+The canonicalRun_length_le theorem additionally shows that if the initial
+formula has m clauses, every n-step run ends with at most m+n clauses.
+It reuses Mathlib's List.dedup_sublist and is a symbolic size bound,
+not an assumed runtime bound on the SAT decision oracle.
 The published proof uses Lean and Mathlib v4.33.1; this project uses
 v4.35.0 and separately imports a TM0 complexity library. This addition
 formally bridges input shape and normalization, not the external proof

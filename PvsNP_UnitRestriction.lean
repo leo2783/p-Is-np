@@ -671,6 +671,65 @@ theorem canonicalRun_paper_preconditions {n k : ℕ}
   · exact twoDistinct_minClauses (canonicalRun query phi indices).1
       (canonicalRun_twoDistinct query indices phi htwo)
 
+
+/-!
+## Explicit upper bound on canonical SAT query instance sizes
+
+A unit restriction can add one clause, while deduplication can only
+remove clauses. This follows from Mathlib's proven List.dedup_sublist.
+Over n branch decisions, the total clause count increases by at most n.
+-/
+
+theorem imposeCanonical_length_le {n : ℕ}
+    (phi : CNF n) (i : Fin n) (bit : Bool) :
+    (imposeCanonical phi i bit).length ≤ phi.length + 1 := by
+  calc
+    (imposeCanonical phi i bit).length =
+        (impose phi i bit).dedup.length := rfl
+    _ ≤ (impose phi i bit).length :=
+        (List.dedup_sublist (impose phi i bit)).length_le
+    _ = phi.length + 1 := by simp [impose]
+
+theorem chooseCanonicalBranch_length_le {n : ℕ}
+    (query : CNF n → Bool) (phi : CNF n) (i : Fin n) :
+    (chooseCanonicalBranch query phi i).length ≤ phi.length + 1 := by
+  cases hq : query (imposeCanonical phi i false) with
+  | false =>
+      simpa [chooseCanonicalBranch, hq] using
+        imposeCanonical_length_le phi i true
+  | true =>
+      simpa [chooseCanonicalBranch, hq] using
+        imposeCanonical_length_le phi i false
+
+theorem canonicalRun_length_le {n : ℕ}
+    (query : CNF n → Bool) :
+    ∀ (indices : List (Fin n)) (phi : CNF n),
+      (canonicalRun query phi indices).1.length ≤
+        phi.length + indices.length := by
+  intro indices
+  induction indices with
+  | nil =>
+      intro phi
+      simp [canonicalRun]
+  | cons i rest ih =>
+      intro phi
+      calc
+        (canonicalRun query phi (i :: rest)).1.length =
+            (canonicalRun query (chooseCanonicalBranch query phi i) rest).1.length := by
+              simp [canonicalRun]
+        _ ≤ (chooseCanonicalBranch query phi i).length + rest.length := ih _
+        _ ≤ (phi.length + 1) + rest.length :=
+              Nat.add_le_add_right (chooseCanonicalBranch_length_le query phi i) _
+        _ = phi.length + (i :: rest).length := by simp; omega
+
+theorem canonical_full_run_size_bound {n : ℕ}
+    (query : CNF n → Bool) (phi : CNF n) :
+    (canonicalRun query phi (Finset.univ : Finset (Fin n)).toList).1.length ≤
+      phi.length + n := by
+  have h := canonicalRun_length_le query
+    (Finset.univ : Finset (Fin n)).toList phi
+  simpa using h
+
 /-!
 ## Differential fixtures from the formally specified CNF evaluator
 
