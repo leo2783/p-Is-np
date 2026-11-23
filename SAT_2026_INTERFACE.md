@@ -132,3 +132,13 @@ and the count oracle is correct on the full PaperEligible domain.
 The proof derives the presence of exactly one compatible unit value
 for each fixed variable from branch insertion, clause preservation,
 and the satisfiability invariant. No witness enumeration is used.
+
+## Total counting-assisted SAT solver
+
+The `countingSolve` interface turns a correct PaperEligible count oracle
+into a total `Option`-valued solver: `none` exactly when the input
+is UNSAT, and `some a` only when `a` satisfies the source CNF.
+The `countingSolveWithCost_calls` theorem shows exactly one oracle
+call on UNSAT inputs and `n+1` calls on SAT inputs. These results are
+conditional on the counting oracle's correctness and do not assert a
+polynomial-time oracle.
