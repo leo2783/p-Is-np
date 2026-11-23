@@ -9,7 +9,13 @@ jobs:
   rust:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - name: Set up pinned Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+      - name: Verify Node.js version
+        run: test "$(node --version)" = "v24.22.3"
       - uses: dtolnay/rust-toolchain@stable
       - name: Rust tests
         run: cargo test --manifest-path rust/Cargo.toml --all-targets
@@ -18,7 +24,7 @@ jobs:
   lean:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Lean and Lake via elan
         run: |
           set -euo pipefail
