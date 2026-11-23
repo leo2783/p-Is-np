@@ -166,3 +166,13 @@ answers on the paper-eligible domain, conditional on correct counting.
 `countingSolveExecutableWithCost_calls` proves one count query for UNSAT
 and n+1 for SAT. Enumerating the variable indices is linear-size; the
 solver does not search all assignments to construct a witness.
+
+## Generic Boolean decision interface
+
+The executable `solveWithDecider` works with any Boolean decision
+procedure that is correct on `PaperEligible` formulas. Its Lean proofs
+establish UNSAT detection, valid SAT witnesses, and completeness.
+`countingSolveExecutable_as_decider` shows that the counting-assisted
+solver is exactly the generic solver specialized to `countDecision`.
+The Rust 2-SAT implication-graph algorithm fits this API, although a
+kernel proof of that Rust implementation's global correctness is separate.

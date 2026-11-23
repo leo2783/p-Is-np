@@ -1845,6 +1845,111 @@ theorem countingSolveExecutableWithCost_calls {n k : ℕ}
             (hnot ((countDecision_paperEligible_correct count hcount phi hvalid).mp hq))
     simp [countingSolveExecutableWithCost, hdec]
 
+
+/-!
+## Executable search from an arbitrary correct Boolean SAT decider
+
+The oracle only has to decide whether legal k-CNF inputs are
+satisfiable; it need not count all models. The witness is recovered
+by the existing linear number of unit restrictions, and the actual
+variable order is the computable List.finRange.
+-/
+
+def solveWithDecider {n : ℕ}
+    (query : CNF n → Bool) (phi : CNF n) :
+    Option (Fin n → Bool) :=
+  if query phi then
+    some (unitWitness (canonicalRun query phi (List.finRange n)).1)
+  else none
+
+theorem decider_extracted_witness_finRange {n k : ℕ}
+    (query : CNF n → Bool)
+    (hquery : ∀ psi, PaperEligible k psi →
+      (query psi = true ↔ Satisfiable psi))
+    (hk : 1 ≤ k) (phi : CNF n)
+    (hvalid : PaperEligible k phi)
+    (hsat : Satisfiable phi) :
+    evalCNF phi (unitWitness
+      (canonicalRun query phi (List.finRange n)).1) = true := by
+  let result : CNF n := (canonicalRun query phi (List.finRange n)).1
+  have hsatFinal : Satisfiable result :=
+    canonicalRun_sat_paper query hquery hk
+      (List.finRange n) phi hvalid hsat
+  obtain ⟨a, ha⟩ := hsatFinal
+  have hunit : ∀ i : Fin n,
+      ∃ bit : Bool, ([(i, bit)] : Clause n) ∈ result := by
+    intro i
+    exact canonicalRun_has_unit query (List.finRange n) phi i
+      (List.mem_finRange i)
+  have hagree : a = unitWitness result := by
+    funext i
+    exact unitWitness_agrees_with_model result a ha hunit i
+  have hsource : evalCNF phi a = true :=
+    canonicalRun_entails query (List.finRange n) phi a ha
+  rw [hagree] at hsource
+  exact hsource
+
+theorem solveWithDecider_none_iff {n k : ℕ}
+    (query : CNF n → Bool)
+    (hquery : ∀ psi, PaperEligible k psi →
+      (query psi = true ↔ Satisfiable psi))
+    (phi : CNF n) (hvalid : PaperEligible k phi) :
+    solveWithDecider query phi = none ↔ ¬ Satisfiable phi := by
+  constructor
+  · intro hnone hsat
+    have hdec : query phi = true := (hquery phi hvalid).mpr hsat
+    simp [solveWithDecider, hdec] at hnone
+  · intro hnot
+    have hdec : query phi = false := by
+      cases hq : query phi with
+      | false => rfl
+      | true =>
+          exact False.elim (hnot ((hquery phi hvalid).mp hq))
+    simp [solveWithDecider, hdec]
+
+theorem solveWithDecider_some_sound {n k : ℕ}
+    (query : CNF n → Bool)
+    (hquery : ∀ psi, PaperEligible k psi →
+      (query psi = true ↔ Satisfiable psi))
+    (hk : 1 ≤ k) (phi : CNF n)
+    (hvalid : PaperEligible k phi)
+    (a : Fin n → Bool)
+    (hresult : solveWithDecider query phi = some a) :
+    evalCNF phi a = true := by
+  have hdec : query phi = true := by
+    cases hq : query phi with
+    | false => simp [solveWithDecider, hq] at hresult
+    | true => rfl
+  have hsat : Satisfiable phi := (hquery phi hvalid).mp hdec
+  have heq :
+      unitWitness (canonicalRun query phi (List.finRange n)).1 = a := by
+    simpa [solveWithDecider, hdec] using hresult
+  rw [← heq]
+  exact decider_extracted_witness_finRange
+    query hquery hk phi hvalid hsat
+
+theorem solveWithDecider_some_complete {n k : ℕ}
+    (query : CNF n → Bool)
+    (hquery : ∀ psi, PaperEligible k psi →
+      (query psi = true ↔ Satisfiable psi))
+    (hk : 1 ≤ k) (phi : CNF n)
+    (hvalid : PaperEligible k phi)
+    (hsat : Satisfiable phi) :
+    ∃ a : Fin n → Bool,
+      solveWithDecider query phi = some a ∧
+      evalCNF phi a = true := by
+  have hdec : query phi = true := (hquery phi hvalid).mpr hsat
+  refine ⟨unitWitness
+    (canonicalRun query phi (List.finRange n)).1, ?_, ?_⟩
+  · simp [solveWithDecider, hdec]
+  · exact decider_extracted_witness_finRange
+      query hquery hk phi hvalid hsat
+
+theorem countingSolveExecutable_as_decider {n : ℕ}
+    (count : CNF n → ℕ) (phi : CNF n) :
+    countingSolveExecutable count phi =
+      solveWithDecider (countDecision count) phi := rfl
+
 /-!
 ## Differential fixtures from the formally specified CNF evaluator
 
