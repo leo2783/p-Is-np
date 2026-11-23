@@ -423,6 +423,6 @@ fn two_sat_queries_preserve_paper_input_domain() {
             assert!(candidate.len() <= formula.len() + n);
         }
         assert!(two_sat_query(n, &result));
-        assert_eq!(result.len() <= formula.len() + n, true);
+        assert!(result.len() <= formula.len() + n);
     }
 }
