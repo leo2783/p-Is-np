@@ -4,7 +4,7 @@ import Mathlib
 # Constructive search-to-decision reduction for Boolean witnesses
 
 Given a correct decision procedure for the existence of a completion
-of a partial Boolean assignment, greedily fix each next bit. The
+of a fixedBits Boolean assignment, greedily fix each next bit. The
 algorithm makes exactly n oracle calls to recover a length-n witness.
 
 This theorem does not assume that the oracle is polynomial-time;
@@ -15,14 +15,14 @@ combinatorial core of SAT self-reducibility, and does not settle P vs NP.
 namespace PvsNP.SelfReduction
 
 def HasCompletion (accepts : List Bool → Prop)
-    (partial : List Bool) (remaining : ℕ) : Prop :=
-  ∃ suffix : List Bool, suffix.length = remaining ∧ accepts (partial ++ suffix)
+    (fixedBits : List Bool) (remaining : ℕ) : Prop :=
+  ∃ suffix : List Bool, suffix.length = remaining ∧ accepts (fixedBits ++ suffix)
 
 theorem completion_succ_iff
-    (accepts : List Bool → Prop) (partial : List Bool) (n : ℕ) :
-    HasCompletion accepts partial (n + 1) ↔
-      HasCompletion accepts (partial ++ [false]) n ∨
-      HasCompletion accepts (partial ++ [true]) n := by
+    (accepts : List Bool → Prop) (fixedBits : List Bool) (n : ℕ) :
+    HasCompletion accepts fixedBits (n + 1) ↔
+      HasCompletion accepts (fixedBits ++ [false]) n ∨
+      HasCompletion accepts (fixedBits ++ [true]) n := by
   constructor
   · rintro ⟨suffix, hlen, haccept⟩
     cases suffix with
@@ -54,76 +54,76 @@ oracle invocations, independently of the oracle's implementation.
 -/
 def greedyWithCost (query : List Bool → ℕ → Bool) :
     List Bool → ℕ → List Bool × ℕ
-  | partial, 0 => (partial, 0)
-  | partial, n + 1 =>
+  | fixedBits, 0 => (fixedBits, 0)
+  | fixedBits, n + 1 =>
       let result :=
-        if query (partial ++ [false]) n then
-          greedyWithCost query (partial ++ [false]) n
+        if query (fixedBits ++ [false]) n then
+          greedyWithCost query (fixedBits ++ [false]) n
         else
-          greedyWithCost query (partial ++ [true]) n
+          greedyWithCost query (fixedBits ++ [true]) n
       (result.1, result.2 + 1)
 
 theorem greedy_cost (query : List Bool → ℕ → Bool) :
-    ∀ n : ℕ, ∀ partial : List Bool,
-      (greedyWithCost query partial n).2 = n := by
+    ∀ n : ℕ, ∀ fixedBits : List Bool,
+      (greedyWithCost query fixedBits n).2 = n := by
   intro n
   induction n with
   | zero =>
-      intro partial
+      intro fixedBits
       rfl
   | succ n ih =>
-      intro partial
-      cases hq : query (partial ++ [false]) n with
+      intro fixedBits
+      cases hq : query (fixedBits ++ [false]) n with
       | false =>
           calc
-            (greedyWithCost query partial (n + 1)).2 =
-                (greedyWithCost query (partial ++ [true]) n).2 + 1 := by
+            (greedyWithCost query fixedBits (n + 1)).2 =
+                (greedyWithCost query (fixedBits ++ [true]) n).2 + 1 := by
                   simp [greedyWithCost, hq]
             _ = n + 1 := by rw [ih]
       | true =>
           calc
-            (greedyWithCost query partial (n + 1)).2 =
-                (greedyWithCost query (partial ++ [false]) n).2 + 1 := by
+            (greedyWithCost query fixedBits (n + 1)).2 =
+                (greedyWithCost query (fixedBits ++ [false]) n).2 + 1 := by
                   simp [greedyWithCost, hq]
             _ = n + 1 := by rw [ih]
 
 theorem greedy_length (query : List Bool → ℕ → Bool) :
-    ∀ n : ℕ, ∀ partial : List Bool,
-      (greedyWithCost query partial n).1.length = partial.length + n := by
+    ∀ n : ℕ, ∀ fixedBits : List Bool,
+      (greedyWithCost query fixedBits n).1.length = fixedBits.length + n := by
   intro n
   induction n with
   | zero =>
-      intro partial
+      intro fixedBits
       simp [greedyWithCost]
   | succ n ih =>
-      intro partial
-      cases hq : query (partial ++ [false]) n with
+      intro fixedBits
+      cases hq : query (fixedBits ++ [false]) n with
       | false =>
           calc
-            (greedyWithCost query partial (n + 1)).1.length =
-                (greedyWithCost query (partial ++ [true]) n).1.length := by
+            (greedyWithCost query fixedBits (n + 1)).1.length =
+                (greedyWithCost query (fixedBits ++ [true]) n).1.length := by
                   simp [greedyWithCost, hq]
-            _ = (partial ++ [true]).length + n := ih _
-            _ = partial.length + (n + 1) := by simp [List.length_append]; omega
+            _ = (fixedBits ++ [true]).length + n := ih _
+            _ = fixedBits.length + (n + 1) := by simp [List.length_append]; omega
       | true =>
           calc
-            (greedyWithCost query partial (n + 1)).1.length =
-                (greedyWithCost query (partial ++ [false]) n).1.length := by
+            (greedyWithCost query fixedBits (n + 1)).1.length =
+                (greedyWithCost query (fixedBits ++ [false]) n).1.length := by
                   simp [greedyWithCost, hq]
-            _ = (partial ++ [false]).length + n := ih _
-            _ = partial.length + (n + 1) := by simp [List.length_append]; omega
+            _ = (fixedBits ++ [false]).length + n := ih _
+            _ = fixedBits.length + (n + 1) := by simp [List.length_append]; omega
 
 theorem greedy_correct
     (accepts : List Bool → Prop) (query : List Bool → ℕ → Bool)
-    (hquery : ∀ partial n,
-      query partial n = true ↔ HasCompletion accepts partial n) :
-    ∀ n : ℕ, ∀ partial : List Bool,
-      HasCompletion accepts partial n →
-      accepts (greedyWithCost query partial n).1 := by
+    (hquery : ∀ fixedBits n,
+      query fixedBits n = true ↔ HasCompletion accepts fixedBits n) :
+    ∀ n : ℕ, ∀ fixedBits : List Bool,
+      HasCompletion accepts fixedBits n →
+      accepts (greedyWithCost query fixedBits n).1 := by
   intro n
   induction n with
   | zero =>
-      intro partial hext
+      intro fixedBits hext
       obtain ⟨suffix, hlen, haccept⟩ := hext
       cases suffix with
       | nil =>
@@ -131,25 +131,25 @@ theorem greedy_correct
       | cons bit tail =>
           simp at hlen
   | succ n ih =>
-      intro partial hext
-      have hsplit := (completion_succ_iff accepts partial n).mp hext
-      cases hq : query (partial ++ [false]) n with
+      intro fixedBits hext
+      have hsplit := (completion_succ_iff accepts fixedBits n).mp hext
+      cases hq : query (fixedBits ++ [false]) n with
       | true =>
-          have hleft : HasCompletion accepts (partial ++ [false]) n :=
+          have hleft : HasCompletion accepts (fixedBits ++ [false]) n :=
             (hquery _ _).mp hq
-          simpa [greedyWithCost, hq] using ih (partial ++ [false]) hleft
+          simpa [greedyWithCost, hq] using ih (fixedBits ++ [false]) hleft
       | false =>
-          have hnot : ¬ HasCompletion accepts (partial ++ [false]) n := by
+          have hnot : ¬ HasCompletion accepts (fixedBits ++ [false]) n := by
             intro hleft
-            have hyes : query (partial ++ [false]) n = true :=
+            have hyes : query (fixedBits ++ [false]) n = true :=
               (hquery _ _).mpr hleft
             rw [hq] at hyes
             cases hyes
-          have hright : HasCompletion accepts (partial ++ [true]) n := by
+          have hright : HasCompletion accepts (fixedBits ++ [true]) n := by
             rcases hsplit with hleft | hright
             · exact False.elim (hnot hleft)
             · exact hright
-          simpa [greedyWithCost, hq] using ih (partial ++ [true]) hright
+          simpa [greedyWithCost, hq] using ih (fixedBits ++ [true]) hright
 
 /-!
 Search reduces to n sequential decision-oracle calls. For any
@@ -158,8 +158,8 @@ and comes with an exact oracle-call count.
 -/
 theorem search_to_decision
     (accepts : List Bool → Prop) (query : List Bool → ℕ → Bool)
-    (hquery : ∀ partial n,
-      query partial n = true ↔ HasCompletion accepts partial n)
+    (hquery : ∀ fixedBits n,
+      query fixedBits n = true ↔ HasCompletion accepts fixedBits n)
     (n : ℕ)
     (hsat : ∃ witness : List Bool,
       witness.length = n ∧ accepts witness) :
