@@ -74,7 +74,10 @@ clause counts are compared with Rust results, including empty formulas, empty
 clauses, duplicated clauses, and unit restrictions. The same generated
 fixtures also cross-check all four steps of `canonicalRun` using a
 syntactic test oracle, comparing the final evaluation, clause count,
-and exact query count across Lean and Rust. The CI `rust` job separately runs `cargo test` and
+and exact query count across Lean and Rust. An additional Rust regression
+uses the existing polynomial-time 2-SAT implication-graph decider as a
+real oracle to recover witnesses for 128 satisfiable 2-CNF instances,
+with no assignment enumeration in the recovery algorithm. The CI `rust` job separately runs `cargo test` and
 `cargo clippy --all-targets -- -D warnings`; the differential test requires
 the `lean-interop` feature and a real Lean-generated fixture file.
 

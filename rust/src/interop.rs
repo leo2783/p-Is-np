@@ -147,7 +147,11 @@ fn lean_rust_semantics() {
 
 
 
-fn run_canonical_syntactic(mut formula: Vec<Vec<Literal>>, n: usize) -> (Vec<Vec<Literal>>, usize) {
+fn run_canonical_with_oracle(
+    mut formula: Vec<Vec<Literal>>,
+    n: usize,
+    query: impl Fn(&[Vec<Literal>]) -> bool,
+) -> (Vec<Vec<Literal>>, usize) {
     let mut calls = 0;
     for variable in 0..n {
         let mut false_formula = formula.clone();
@@ -159,7 +163,7 @@ fn run_canonical_syntactic(mut formula: Vec<Vec<Literal>>, n: usize) -> (Vec<Vec
             }],
         );
         let false_formula = normalize_clauses(&false_formula);
-        if false_formula.len().is_multiple_of(2) {
+        if query(&false_formula) {
             formula = false_formula;
         } else {
             let mut true_formula = formula;
@@ -175,6 +179,10 @@ fn run_canonical_syntactic(mut formula: Vec<Vec<Literal>>, n: usize) -> (Vec<Vec
         calls += 1;
     }
     (formula, calls)
+}
+
+fn run_canonical_syntactic(formula: Vec<Vec<Literal>>, n: usize) -> (Vec<Vec<Literal>>, usize) {
+    run_canonical_with_oracle(formula, n, |candidate| candidate.len().is_multiple_of(2))
 }
 
 fn normalize_clauses(clauses: &[Vec<Literal>]) -> Vec<Vec<Literal>> {
@@ -212,4 +220,109 @@ fn duplicate_unit_clause_breaks_nodup_precondition() {
             "normalization must preserve every tested assignment"
         );
     }
+}
+
+// A polynomial-time satisfiability oracle on the 2-CNF fragment.
+// A unit clause (a) is represented as (a OR a). An empty clause
+// makes the formula unsatisfiable. Longer clauses are rejected.
+fn two_sat_query(n: usize, formula: &[Vec<Literal>]) -> bool {
+    if formula.iter().any(Vec::is_empty) {
+        return false;
+    }
+    let clauses: Vec<_> = formula
+        .iter()
+        .map(|clause| {
+            assert!(clause.len() <= 2, "2-SAT oracle received a wider clause");
+            let a = clause[0];
+            let b = *clause.get(1).unwrap_or(&a);
+            (
+                super::Lit {
+                    variable: a.variable,
+                    positive: a.positive,
+                },
+                super::Lit {
+                    variable: b.variable,
+                    positive: b.positive,
+                },
+            )
+        })
+        .collect();
+    super::solve_2sat(n, &clauses).is_some()
+}
+
+#[test]
+fn two_sat_oracle_recovers_a_witness_without_enumeration() {
+    let n = 4usize;
+    for seed in 0..128usize {
+        let intended: [bool; 4] =
+            std::array::from_fn(|i| ((seed ^ (seed >> (i + 1))) >> i) & 1 == 1);
+        // Each input clause is satisfied by the chosen witness.
+        let mut formula = Vec::new();
+        for j in 0..12usize {
+            let a = (seed + 3 * j) % n;
+            let b = (5 * seed + 7 * j) % n;
+            formula.push(vec![
+                Literal {
+                    variable: a,
+                    positive: intended[a],
+                },
+                Literal {
+                    variable: b,
+                    positive: (seed + j).is_multiple_of(2),
+                },
+            ]);
+        }
+        formula.push(vec![Literal {
+            variable: seed % n,
+            positive: intended[seed % n],
+        }]);
+        formula = normalize_clauses(&formula);
+
+        assert!(eval_formula(&formula, &intended));
+        assert!(two_sat_query(n, &formula));
+        let (result, calls) =
+            run_canonical_with_oracle(formula.clone(), n, |f| two_sat_query(n, f));
+        assert_eq!(calls, n);
+        assert!(two_sat_query(n, &result));
+        assert!(result.len() <= formula.len() + n);
+        assert!(
+            result
+                .iter()
+                .enumerate()
+                .all(|(i, clause)| !result[..i].contains(clause))
+        );
+        let mut recovered = [false; 4];
+        for (i, value) in recovered.iter_mut().enumerate() {
+            let has_false = result.contains(&vec![Literal {
+                variable: i,
+                positive: false,
+            }]);
+            let has_true = result.contains(&vec![Literal {
+                variable: i,
+                positive: true,
+            }]);
+            assert_ne!(has_false, has_true, "exactly one unit choice per variable");
+            *value = has_true;
+        }
+        assert!(
+            eval_formula(&result, &recovered),
+            "final oracle-restricted formula unsatisfied for seed={seed}"
+        );
+        assert!(
+            eval_formula(&formula, &recovered),
+            "recovered assignment does not satisfy source formula for seed={seed}"
+        );
+    }
+
+    let contradictory = vec![
+        vec![Literal {
+            variable: 0,
+            positive: true,
+        }],
+        vec![Literal {
+            variable: 0,
+            positive: false,
+        }],
+    ];
+    assert!(!two_sat_query(n, &contradictory));
 }
