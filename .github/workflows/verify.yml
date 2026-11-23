@@ -19,17 +19,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: leanprover/lean-action@v1
-        with:
-          auto-config: false
-          build: false
-      - name: Download Mathlib cache
+      - name: Install Lean and Lake via elan
         run: |
+          set -euo pipefail
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Resolve Mathlib dependencies and install cache
+        run: |
+          set -euo pipefail
+          lean --version
           lake update
           lake exe cache get
       - name: Elaborate and kernel-check all proof files
         run: |
           set -euo pipefail
           for f in PvsNP.lean PvsNP_BlackBox.lean PvsNP_Counting.lean; do
+            echo "::group::$f"
             lake env lean "$f"
+            echo "::endgroup::"
           done
