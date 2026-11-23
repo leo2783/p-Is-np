@@ -159,7 +159,7 @@ fn run_canonical_syntactic(mut formula: Vec<Vec<Literal>>, n: usize) -> (Vec<Vec
             }],
         );
         let false_formula = normalize_clauses(&false_formula);
-        if false_formula.len() % 2 == 0 {
+        if false_formula.len().is_multiple_of(2) {
             formula = false_formula;
         } else {
             let mut true_formula = formula;
