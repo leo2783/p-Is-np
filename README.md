@@ -75,6 +75,12 @@ unit restrictions. The CI `rust` job separately runs `cargo test` and
 `cargo clippy --all-targets -- -D warnings`; the differential test requires
 the `lean-interop` feature and a real Lean-generated fixture file.
 
+## 2026 SAT result interface
+
+See [SAT_2026_INTERFACE.md](SAT_2026_INTERFACE.md) for the 2026
+subexponential 3-SAT result and kernel-checked unit-clause normalization
+that preserves its distinct-clause input precondition.
+
 ## Independent executable checks
 
 `rust/src/main.rs` tests deterministic OR minimax complexity,

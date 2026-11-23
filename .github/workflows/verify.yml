@@ -20,7 +20,7 @@ jobs:
       - name: Rust tests
         run: cargo test --manifest-path rust/Cargo.toml --all-targets
       - name: Rust clippy (zero warnings)
-        run: cargo clippy --manifest-path rust/Cargo.toml --all-targets -- -D warnings
+        run: cargo clippy --manifest-path rust/Cargo.toml --all-targets --all-features -- -D warnings
       - name: Rust experiments
         run: cargo run --release --manifest-path rust/Cargo.toml
   lean:
@@ -57,4 +57,4 @@ jobs:
         run: |
           set -euo pipefail
           lake env lean --run PvsNP_UnitRestriction.lean > /tmp/lean-cnf-fixtures.tsv
-          PVSNP_LEAN_FIXTURES=/tmp/lean-cnf-fixtures.tsv cargo test --manifest-path rust/Cargo.toml --features lean-interop lean_rust_semantics -- --nocapture
+          PVSNP_LEAN_FIXTURES=/tmp/lean-cnf-fixtures.tsv cargo test --manifest-path rust/Cargo.toml --features lean-interop -- --nocapture

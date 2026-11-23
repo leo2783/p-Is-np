@@ -218,6 +218,69 @@ theorem restrict_all_variables {n : ℕ}
   · simpa [hlen] using restrictions_size query vars phi
 
 
+
+/-!
+## Clause normalization for a 2026 subexponential 3-SAT interface
+
+The 2026 IsKCNF interface requires clauses without duplicates.
+Adding a unit clause may break this input invariant. The
+existing Mathlib List.dedup theorem permits a semantic-preserving
+normalization. The external subexponential theorem is not imported.
+-/
+
+def canonicalizeCNF {n : ℕ} (phi : CNF n) : CNF n := phi.dedup
+
+theorem canonicalize_nodup {n : ℕ} (phi : CNF n) :
+    (canonicalizeCNF phi).Nodup := by
+  simpa only [canonicalizeCNF] using List.nodup_dedup phi
+
+theorem canonicalize_eval_true_iff {n : ℕ}
+    (phi : CNF n) (a : Fin n → Bool) :
+    evalCNF (canonicalizeCNF phi) a = true ↔ evalCNF phi a = true := by
+  simp only [evalCNF, List.all_eq_true]
+  constructor
+  · intro h c hc
+    exact h c (by simpa only [canonicalizeCNF, List.mem_dedup] using hc)
+  · intro h c hc
+    exact h c (by simpa only [canonicalizeCNF, List.mem_dedup] using hc)
+
+def imposeCanonical {n : ℕ}
+    (phi : CNF n) (i : Fin n) (bit : Bool) : CNF n :=
+  canonicalizeCNF (impose phi i bit)
+
+theorem imposeCanonical_eval_true_iff {n : ℕ}
+    (phi : CNF n) (i : Fin n) (bit : Bool) (a : Fin n → Bool) :
+    evalCNF (imposeCanonical phi i bit) a = true ↔
+      evalCNF phi a = true ∧ a i = bit := by
+  exact (canonicalize_eval_true_iff (impose phi i bit) a).trans
+    (evalCNF_impose_iff phi i bit a)
+
+theorem imposeCanonical_nodup {n : ℕ}
+    (phi : CNF n) (i : Fin n) (bit : Bool) :
+    (imposeCanonical phi i bit).Nodup :=
+  canonicalize_nodup (impose phi i bit)
+
+theorem imposeCanonical_preserves_width {n k : ℕ}
+    (phi : CNF n) (i : Fin n) (bit : Bool)
+    (hk : 1 ≤ k)
+    (hwidth : ∀ c, c ∈ phi → c.length ≤ k) :
+    (∀ c, c ∈ imposeCanonical phi i bit → c.length ≤ k) ∧
+      (imposeCanonical phi i bit).Nodup := by
+  constructor
+  · intro c hc
+    have hmem : c ∈ impose phi i bit := by
+      simpa only [imposeCanonical, canonicalizeCNF, List.mem_dedup] using hc
+    have hcase : c = [(i, bit)] ∨ c ∈ phi := by
+      simpa [impose] using hmem
+    rcases hcase with rfl | h
+    · simpa using hk
+    · exact hwidth c h
+  · exact imposeCanonical_nodup phi i bit
+
+theorem raw_impose_can_duplicate :
+    ¬ (impose ([[(0, true)]] : CNF 1) (0 : Fin 1) true).Nodup := by
+  decide
+
 /-!
 ## Differential fixtures from the formally specified CNF evaluator
 

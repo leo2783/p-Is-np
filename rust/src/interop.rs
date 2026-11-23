@@ -4,7 +4,7 @@
 
 use std::fs;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Literal {
     variable: usize,
     positive: bool,
@@ -115,4 +115,42 @@ fn lean_rust_semantics() {
     assert!(checked >= 1000, "insufficient differential coverage");
     assert!(original_true > 0 && original_false > 0, "both SAT and UNSAT evaluations required");
     println!("Validated {checked} Lean/Rust restriction evaluations");
+}
+
+
+fn normalize_clauses(clauses: &[Vec<Literal>]) -> Vec<Vec<Literal>> {
+    let mut unique = Vec::new();
+    for clause in clauses {
+        if !unique.contains(clause) {
+            unique.push(clause.clone());
+        }
+    }
+    unique
+}
+
+#[test]
+fn duplicate_unit_clause_breaks_nodup_precondition() {
+    let unit = vec![Literal {
+        variable: 0,
+        positive: true,
+    }];
+    let raw = vec![unit.clone(), unit];
+    assert!(
+        raw.iter().enumerate().any(|(i, c)| raw[..i].contains(c)),
+        "raw unit insertion must expose a duplicate clause"
+    );
+    let normalized = normalize_clauses(&raw);
+    assert!(
+        normalized.iter().enumerate().all(|(i, c)| !normalized[..i].contains(c)),
+        "normalization must restore distinct-clause invariant"
+    );
+    assert!(normalized.len() < raw.len());
+    for mask in 0..16usize {
+        let assignment = std::array::from_fn(|i| ((mask >> i) & 1) == 1);
+        assert_eq!(
+            eval_formula(&raw, &assignment),
+            eval_formula(&normalized, &assignment),
+            "normalization must preserve every tested assignment"
+        );
+    }
 }
