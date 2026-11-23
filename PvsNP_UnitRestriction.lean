@@ -124,8 +124,17 @@ theorem chooseBranch_sat {n : ℕ}
 theorem chooseBranch_length {n : ℕ}
     (query : CNF n → Bool) (phi : CNF n) (i : Fin n) :
     (chooseBranch query phi i).length = phi.length + 1 := by
-  cases hq : query (impose phi i false) <;>
-    simp [chooseBranch, hq, impose, Nat.add_comm]
+  cases hq : query (impose phi i false) with
+  | false =>
+      have hstep : chooseBranch query phi i = impose phi i true := by
+        simp [chooseBranch, hq]
+      rw [hstep]
+      simp [impose, Nat.add_comm]
+  | true =>
+      have hstep : chooseBranch query phi i = impose phi i false := by
+        simp [chooseBranch, hq]
+      rw [hstep]
+      simp [impose, Nat.add_comm]
 
 def restrictWithCost {n : ℕ} (query : CNF n → Bool) :
     CNF n → List (Fin n) → CNF n × ℕ
@@ -167,7 +176,7 @@ theorem restrictions_calls {n : ℕ}
             (restrictWithCost query (chooseBranch query phi i) rest).2 + 1 := by
               simp [restrictWithCost]
         _ = rest.length + 1 := by rw [ih]
-        _ = (i :: rest).length := by simp [Nat.add_comm]
+        _ = (i :: rest).length := by simp
 
 theorem restrictions_size {n : ℕ}
     (query : CNF n → Bool) :
