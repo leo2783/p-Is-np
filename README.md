@@ -52,7 +52,9 @@ v0.5.0 library supply precise TM0 complexity classes and Cook–Levin.
 - `PvsNP_Resolution.lean`: propositional resolution rule soundness and
   inductive derivation soundness, including a proof that a satisfiable
   clause set admits no empty-clause resolution refutation. The proof
-  operates symbolically without enumerating all assignments.
+  operates symbolically without enumerating all assignments. It also proves
+  that adding a list of resolution-derived clauses preserves satisfiability,
+  and that an empty-clause derivation certifies UNSAT.
 
 - `PvsNP_ThreeSAT_Restriction.lean`: native NPComplete ThreeCNF unit constraints,
   exact 3-SAT splitting, and boundedness preservation, checked alongside the

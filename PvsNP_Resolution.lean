@@ -77,4 +77,59 @@ theorem no_empty_refutation_of_satisfiable {n : ℕ}
     derivation_sound premises x hinput hempty
   simp [evalClause] at heval
 
+
+/-!
+## Sound addition of derived clauses
+
+Resolution inferences may be cached as new clauses without changing
+the set of satisfying assignments. The following results apply to
+arbitrarily long lists of clauses derived from the same premises.
+-/
+
+def CNFSat {n : ℕ} (premises : List (Clause n)) : Prop :=
+  ∃ x : Fin n → Bool, ∀ clause, clause ∈ premises → evalClause clause x = true
+
+theorem derived_clause_equisatisfiable {n : ℕ}
+    (premises : List (Clause n)) (derived : Clause n)
+    (hDeriv : Derives premises derived) :
+    CNFSat (derived :: premises) ↔ CNFSat premises := by
+  constructor
+  · rintro ⟨x, hs⟩
+    refine ⟨x, ?_⟩
+    intro c hc
+    exact hs c (by simp [hc])
+  · rintro ⟨x, hs⟩
+    refine ⟨x, ?_⟩
+    intro c hc
+    have hcases : c = derived ∨ c ∈ premises := by
+      simpa using hc
+    rcases hcases with rfl | hmem
+    · exact derivation_sound premises x hs hDeriv
+    · exact hs c hmem
+
+theorem derived_clauses_equisatisfiable {n : ℕ}
+    (premises added : List (Clause n))
+    (hDeriv : ∀ c, c ∈ added → Derives premises c) :
+    CNFSat (added ++ premises) ↔ CNFSat premises := by
+  constructor
+  · rintro ⟨x, hs⟩
+    refine ⟨x, ?_⟩
+    intro c hc
+    exact hs c (by simp [hc])
+  · rintro ⟨x, hs⟩
+    refine ⟨x, ?_⟩
+    intro c hc
+    have hcases : c ∈ added ∨ c ∈ premises := by
+      simpa using hc
+    rcases hcases with hmem | hmem
+    · exact derivation_sound premises x hs (hDeriv c hmem)
+    · exact hs c hmem
+
+theorem refutation_proves_unsatisfiability {n : ℕ}
+    (premises : List (Clause n))
+    (hDeriv : Derives premises []) :
+    ¬ CNFSat premises := by
+  intro hSat
+  exact no_empty_refutation_of_satisfiable premises hSat hDeriv
+
 end PvsNP.Resolution
