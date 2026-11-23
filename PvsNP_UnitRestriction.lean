@@ -931,6 +931,103 @@ theorem all_canonical_queries_paper_ready {n k : ℕ}
     have hsize := canonicalQueries_size_bound query indices phi psi hmem
     simpa [hlen] using hsize
 
+
+/-!
+## Counting-to-decision bridge for the 2026 counting-SAT interface
+
+The paper's counting predicate is an exact Finset count of the
+assignments satisfying every clause. The first theorem proves
+equality with the Boolean evaluator count; the second proves that
+strictly positive count is equivalent to SAT, without enumerating
+assignments in the proof. A correct counting oracle can therefore
+serve as a decision oracle in the verified canonical search.
+The running time of the counting oracle remains an explicit input.
+-/
+
+noncomputable def evaluatorCount {n : ℕ} (phi : CNF n) : ℕ := by
+  classical
+  exact ((Finset.univ : Finset (Fin n → Bool)).filter
+    (fun a => evalCNF phi a = true)).card
+
+noncomputable def paperCount {n : ℕ} (phi : CNF n) : ℕ := by
+  classical
+  exact ((Finset.univ : Finset (Fin n → Bool)).filter
+    (fun a => ∀ clause : Clause n, clause ∈ phi →
+      ∃ lit : Literal n, lit ∈ clause ∧ a lit.1 = lit.2)).card
+
+theorem evaluatorCount_eq_paperCount {n : ℕ} (phi : CNF n) :
+    evaluatorCount phi = paperCount phi := by
+  classical
+  unfold evaluatorCount paperCount
+  apply congrArg Finset.card
+  ext a
+  simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+  exact evalCNF_paper_spec phi a
+
+theorem evaluatorCount_positive_iff {n : ℕ} (phi : CNF n) :
+    0 < evaluatorCount phi ↔ Satisfiable phi := by
+  classical
+  constructor
+  · intro h
+    obtain ⟨a, ha⟩ := Finset.card_pos.mp h
+    exact ⟨a, (Finset.mem_filter.mp ha).2⟩
+  · rintro ⟨a, ha⟩
+    apply Finset.card_pos.mpr
+    exact ⟨a, Finset.mem_filter.mpr ⟨Finset.mem_univ a, ha⟩⟩
+
+def countDecision {n : ℕ} (count : CNF n → ℕ) (phi : CNF n) : Bool :=
+  decide (0 < count phi)
+
+theorem countDecision_correct {n k : ℕ}
+    (count : CNF n → ℕ)
+    (hcount : ∀ phi, WidthNodup k phi →
+      count phi = paperCount phi) :
+    ∀ phi, WidthNodup k phi →
+      (countDecision count phi = true ↔ Satisfiable phi) := by
+  intro phi hvalid
+  simp only [countDecision, decide_eq_true_eq]
+  rw [hcount phi hvalid, ← evaluatorCount_eq_paperCount phi]
+  exact evaluatorCount_positive_iff phi
+
+theorem counting_oracle_canonical_search {n k : ℕ}
+    (count : CNF n → ℕ)
+    (hcount : ∀ phi, WidthNodup k phi →
+      count phi = paperCount phi)
+    (hk : 1 ≤ k)
+    (phi : CNF n)
+    (hvalid : WidthNodup k phi)
+    (hsat : Satisfiable phi) :
+    WidthNodup k
+      (canonicalRun (countDecision count) phi
+        (Finset.univ : Finset (Fin n)).toList).1 ∧
+    Satisfiable
+      (canonicalRun (countDecision count) phi
+        (Finset.univ : Finset (Fin n)).toList).1 ∧
+    (canonicalRun (countDecision count) phi
+      (Finset.univ : Finset (Fin n)).toList).2 = n ∧
+    ∀ a b : Fin n → Bool,
+      evalCNF (canonicalRun (countDecision count) phi
+        (Finset.univ : Finset (Fin n)).toList).1 a = true →
+      evalCNF (canonicalRun (countDecision count) phi
+        (Finset.univ : Finset (Fin n)).toList).1 b = true →
+      ∀ i : Fin n, a i = b i := by
+  exact canonical_full_search (countDecision count)
+    (countDecision_correct count hcount) hk phi hvalid hsat
+
+theorem counting_oracle_all_queries_valid {n k : ℕ}
+    (count : CNF n → ℕ) (phi : CNF n)
+    (hk : 1 ≤ k) (hvalid : WidthNodup k phi)
+    (hall : AllVariablesOccur phi)
+    (htwo : HasTwoDistinctClauses phi) :
+    (canonicalQueries (countDecision count) phi
+      (Finset.univ : Finset (Fin n)).toList).length = n ∧
+    ∀ psi, psi ∈ canonicalQueries (countDecision count) phi
+        (Finset.univ : Finset (Fin n)).toList →
+      WidthNodup k psi ∧ AllVariablesOccur psi ∧
+      2 ≤ psi.length ∧ psi.length ≤ phi.length + n := by
+  exact all_canonical_queries_paper_ready
+    (countDecision count) phi hk hvalid hall htwo
+
 /-!
 ## Differential fixtures from the formally specified CNF evaluator
 

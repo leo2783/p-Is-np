@@ -65,3 +65,13 @@ The paper's 2^{o(n)} bound is asymptotic. The existing local Lean
 theorems on exact n oracle calls and n unit clauses give a route to
 transfer a compatible subexponential decision procedure to witness
 reconstruction. No polynomial-time runtime is inferred.
+
+## Counting-to-decision theorem
+
+The `evaluatorCount_eq_paperCount` theorem equates the Boolean evaluator
+count with the 2026-style satisfying-assignment count. The positive-count
+characterization yields `countDecision_correct`, while
+`counting_oracle_canonical_search` specializes the verified full-search
+theorem to any count oracle that correctly counts valid k-CNF inputs.
+This is conditional on the counting oracle; it does not establish the
+external algorithm's Turing-machine time bound.
