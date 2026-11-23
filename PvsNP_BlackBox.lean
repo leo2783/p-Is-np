@@ -102,4 +102,48 @@ theorem exponential_query_lower_bound (n : ℕ) (t : Tree (2 ^ n))
     (h : SolvesOR t) : 2 ^ n ≤ height t :=
   depth_lower_bound t h
 
+
+/-! ## Matching upper bound for sequential OR, with exact optimal depth -/
+def sequentialOr {n : ℕ} : List (Fin n) → Tree n
+  | [] => .output false
+  | i :: rest => .ask i (sequentialOr rest) (.output true)
+
+theorem sequentialOr_correct_on_list {n : ℕ}
+    (indices : List (Fin n)) (x : Fin n → Bool) :
+    eval (sequentialOr indices) x = true ↔
+      ∃ i ∈ indices, x i = true := by
+  induction indices with
+  | nil => simp [sequentialOr, eval]
+  | cons i rest ih =>
+      cases h : x i with
+      | false => simp [sequentialOr, eval, h, ih]
+      | true => simp [sequentialOr, eval, h]
+
+theorem sequentialOr_solves (n : ℕ) :
+    SolvesOR (sequentialOr (Finset.univ : Finset (Fin n)).toList) := by
+  intro x
+  rw [sequentialOr_correct_on_list]
+  simp
+
+theorem sequentialOr_height {n : ℕ} (indices : List (Fin n)) :
+    height (sequentialOr indices) = indices.length := by
+  induction indices with
+  | nil => rfl
+  | cons i rest ih => simp [sequentialOr, height, ih]
+
+theorem deterministic_or_optimal (n : ℕ) :
+    (∃ t : Tree n, SolvesOR t ∧ height t = n) ∧
+    (∀ t : Tree n, SolvesOR t → n ≤ height t) := by
+  constructor
+  · refine ⟨sequentialOr (Finset.univ : Finset (Fin n)).toList,
+      sequentialOr_solves n, ?_⟩
+    simp [sequentialOr_height]
+  · intro t ht
+    exact depth_lower_bound t ht
+
+theorem exponential_or_optimal (n : ℕ) :
+    (∃ t : Tree (2 ^ n), SolvesOR t ∧ height t = 2 ^ n) ∧
+    (∀ t : Tree (2 ^ n), SolvesOR t → 2 ^ n ≤ height t) :=
+  deterministic_or_optimal (2 ^ n)
+
 end PvsNP.BlackBox
