@@ -30,6 +30,12 @@ jobs:
           lean --version
           lake update
           lake exe cache get
+      - name: Reject unproved placeholders
+        run: |
+          if grep -nE '(^|[^[:alnum:]_])(sorry|admit|axiom|native_decide)([^[:alnum:]_]|$)' PvsNP*.lean; then
+            echo 'Incomplete or unchecked proof primitive detected'
+            exit 1
+          fi
       - name: Elaborate and kernel-check all proof files
         run: |
           set -euo pipefail
