@@ -38,3 +38,21 @@ jobs:
             lake env lean "$f"
             echo "::endgroup::"
           done
+
+  formal-complexity-classes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lean and Lake
+        run: |
+          set -euo pipefail
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Get actual NP-completeness definitions
+        run: |
+          set -euo pipefail
+          lake update
+          lake exe cache get
+          lake build NPComplete
+      - name: Prove P = NP iff SAT in P in TM0 complexity classes
+        run: lake env lean PvsNP_FormalClasses.lean
