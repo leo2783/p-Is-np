@@ -190,4 +190,43 @@ theorem full_zero_sensitivity_requires_linear_depth {n : ℕ}
     _ ≤ (zeroQueries t).length := List.toFinset_card_le (zeroQueries t)
     _ ≤ height t := zero_queries_le_height t
 
+
+/-!
+## Oracle-model gap between deterministic and existential verification
+
+A nondeterministic certificate selects one queried index. Every
+deterministic solver for the same unrestricted black-box OR function
+needs 2^n queries in the worst case. This models an oracle separation;
+it makes no claim about ordinary Turing-machine P versus NP.
+-/
+def witnessTree {n : ℕ} (w : Fin n) : Tree n :=
+  .ask w (.output false) (.output true)
+
+theorem witnessTree_height {n : ℕ} (w : Fin n) :
+    height (witnessTree w) = 1 := by
+  rfl
+
+theorem witnessTree_eval {n : ℕ} (w : Fin n) (x : Fin n → Bool) :
+    eval (witnessTree w) x = x w := by
+  cases h : x w <;> simp [witnessTree, eval, h]
+
+theorem existential_verifier_solves_or (n : ℕ) (x : Fin (2 ^ n) → Bool) :
+    (∃ w : Fin (2 ^ n), eval (witnessTree w) x = true) ↔
+      ∃ i : Fin (2 ^ n), x i = true := by
+  constructor
+  · rintro ⟨w, hw⟩
+    exact ⟨w, by simpa [witnessTree_eval] using hw⟩
+  · rintro ⟨i, hi⟩
+    exact ⟨i, by simpa [witnessTree_eval] using hi⟩
+
+theorem oracle_query_gap (n : ℕ) :
+    (∀ t : Tree (2 ^ n), SolvesOR t → 2 ^ n ≤ height t) ∧
+    (∀ x : Fin (2 ^ n) → Bool,
+      (∃ w, eval (witnessTree w) x = true) ↔ ∃ i, x i = true) := by
+  constructor
+  · intro t ht
+    exact exponential_query_lower_bound n t ht
+  · intro x
+    exact existential_verifier_solves_or n x
+
 end PvsNP.BlackBox
