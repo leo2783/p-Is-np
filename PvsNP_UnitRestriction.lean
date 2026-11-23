@@ -1537,7 +1537,7 @@ theorem countingSolve_none_iff {n k : ℕ}
     have hdec : countDecision count phi = false := by
       cases hq : countDecision count phi with
       | false =>
-          exact hq
+          rfl
       | true =>
           exact False.elim
             (hnot ((countDecision_paperEligible_correct count hcount phi hvalid).mp hq))
@@ -1556,7 +1556,7 @@ theorem countingSolve_some_sound {n k : ℕ}
     | false =>
         simp [countingSolve, hq] at hresult
     | true =>
-        exact hq
+        rfl
   have hsat : Satisfiable phi :=
     (countDecision_paperEligible_correct count hcount phi hvalid).mp hdec
   have hwitness :=
@@ -1583,7 +1583,7 @@ theorem countingSolve_some_complete {n k : ℕ}
   · simp [countingSolve, hdec]
   · exact paper_counting_extracted_witness count hcount hk phi hvalid hsat
 
-def countingSolveWithCost {n : ℕ}
+noncomputable def countingSolveWithCost {n : ℕ}
     (count : CNF n → ℕ) (phi : CNF n) :
     Option (Fin n → Bool) × ℕ :=
   if countDecision count phi then
@@ -1623,7 +1623,7 @@ theorem countingSolveWithCost_calls {n k : ℕ}
     have hdec : countDecision count phi = false := by
       cases hq : countDecision count phi with
       | false =>
-          exact hq
+          rfl
       | true =>
           exact False.elim
             (hnot ((countDecision_paperEligible_correct count hcount phi hvalid).mp hq))
