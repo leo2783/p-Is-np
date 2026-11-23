@@ -245,8 +245,9 @@ theorem refine_unique_indices (query : ThreeCNF → Bool) :
       have hb' : (refineWithCost query (branchStep query f j) rest).1.Satisfied b := by
         simpa [refineWithCost] using hb
       have hi' : i = j ∨ i ∈ rest := by simpa using hi
-      rcases hi' with rfl | hrest
-      · have hsa : (branchStep query f j).Satisfied a :=
+      rcases hi' with hij | hrest
+      · subst i
+        have hsa : (branchStep query f j).Satisfied a :=
           refine_entails query rest (branchStep query f j) a ha'
         have hsb : (branchStep query f j).Satisfied b :=
           refine_entails query rest (branchStep query f j) b hb'
