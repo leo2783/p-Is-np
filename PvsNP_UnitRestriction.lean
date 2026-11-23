@@ -1133,6 +1133,146 @@ theorem counting_oracle_work_bound {n k : ℕ}
     (Finset.univ : Finset (Fin n)).toList phi hbound
   simpa using h
 
+
+/-!
+## Counting search with the full paper-style input domain
+
+The external 2026 counting result guarantees its oracle on bounded,
+duplicate-free formulas with at least two distinct clauses and with
+every variable occurring (as well as the global n >= 4 condition).
+An oracle correct only on that domain suffices for the greedy search:
+the entire restricted path stays inside that domain.
+-/
+
+def PaperEligible {n : ℕ} (k : ℕ) (phi : CNF n) : Prop :=
+  WidthNodup k phi ∧
+  AllVariablesOccur phi ∧
+  HasTwoDistinctClauses phi
+
+theorem imposeCanonical_paperEligible {n k : ℕ}
+    (phi : CNF n) (i : Fin n) (bit : Bool)
+    (hk : 1 ≤ k) (h : PaperEligible k phi) :
+    PaperEligible k (imposeCanonical phi i bit) := by
+  exact ⟨imposeCanonical_widthNodup phi i bit hk h.1,
+    imposeCanonical_allVariablesOccur phi i bit h.2.1,
+    imposeCanonical_twoDistinct phi i bit h.2.2⟩
+
+theorem chooseCanonicalBranch_paperEligible {n k : ℕ}
+    (query : CNF n → Bool) (phi : CNF n) (i : Fin n)
+    (hk : 1 ≤ k) (h : PaperEligible k phi) :
+    PaperEligible k (chooseCanonicalBranch query phi i) := by
+  exact ⟨chooseCanonicalBranch_widthNodup query phi i hk h.1,
+    canonicalBranch_allVariablesOccur query phi i h.2.1,
+    canonicalBranch_twoDistinct query phi i h.2.2⟩
+
+theorem chooseCanonicalBranch_sat_paper {n k : ℕ}
+    (query : CNF n → Bool)
+    (hquery : ∀ psi, PaperEligible k psi →
+      (query psi = true ↔ Satisfiable psi))
+    (phi : CNF n) (i : Fin n)
+    (hk : 1 ≤ k) (hvalid : PaperEligible k phi)
+    (hsat : Satisfiable phi) :
+    Satisfiable (chooseCanonicalBranch query phi i) := by
+  have hsplit := (canonical_sat_split phi i).mp hsat
+  have hfalseValid : PaperEligible k (imposeCanonical phi i false) :=
+    imposeCanonical_paperEligible phi i false hk hvalid
+  unfold chooseCanonicalBranch
+  cases hq : query (imposeCanonical phi i false) with
+  | true =>
+      have hf : Satisfiable (imposeCanonical phi i false) :=
+        (hquery _ hfalseValid).mp hq
+      simpa [hq] using hf
+  | false =>
+      have hn : ¬ Satisfiable (imposeCanonical phi i false) := by
+        intro hf
+        have hyes : query (imposeCanonical phi i false) = true :=
+          (hquery _ hfalseValid).mpr hf
+        rw [hq] at hyes
+        cases hyes
+      have ht : Satisfiable (imposeCanonical phi i true) :=
+        hsplit.resolve_left hn
+      simpa [hq] using ht
+
+theorem canonicalRun_sat_paper {n k : ℕ}
+    (query : CNF n → Bool)
+    (hquery : ∀ psi, PaperEligible k psi →
+      (query psi = true ↔ Satisfiable psi))
+    (hk : 1 ≤ k) :
+    ∀ (indices : List (Fin n)) (phi : CNF n),
+      PaperEligible k phi → Satisfiable phi →
+      Satisfiable (canonicalRun query phi indices).1 := by
+  intro indices
+  induction indices with
+  | nil =>
+      intro phi _ hsat
+      simpa [canonicalRun] using hsat
+  | cons i rest ih =>
+      intro phi hvalid hsat
+      have hnextValid :=
+        chooseCanonicalBranch_paperEligible query phi i hk hvalid
+      have hnextSat :=
+        chooseCanonicalBranch_sat_paper query hquery phi i hk hvalid hsat
+      simpa [canonicalRun] using
+        ih (chooseCanonicalBranch query phi i) hnextValid hnextSat
+
+theorem canonicalRun_paperEligible {n k : ℕ}
+    (query : CNF n → Bool)
+    (hk : 1 ≤ k) (indices : List (Fin n))
+    (phi : CNF n) (hvalid : PaperEligible k phi) :
+    PaperEligible k (canonicalRun query phi indices).1 := by
+  exact ⟨canonicalRun_valid query hk indices phi hvalid.1,
+    canonicalRun_allVariablesOccur query indices phi hvalid.2.1,
+    canonicalRun_twoDistinct query indices phi hvalid.2.2⟩
+
+theorem countDecision_paperEligible_correct {n k : ℕ}
+    (count : CNF n → ℕ)
+    (hcount : ∀ psi, PaperEligible k psi →
+      count psi = paperCount psi) :
+    ∀ psi, PaperEligible k psi →
+      (countDecision count psi = true ↔ Satisfiable psi) := by
+  intro psi hvalid
+  simp only [countDecision, decide_eq_true_eq]
+  rw [hcount psi hvalid, ← evaluatorCount_eq_paperCount psi]
+  exact evaluatorCount_positive_iff psi
+
+theorem paper_eligible_counting_search {n k : ℕ}
+    (count : CNF n → ℕ)
+    (hcount : ∀ psi, PaperEligible k psi →
+      count psi = paperCount psi)
+    (hk : 1 ≤ k) (phi : CNF n)
+    (hvalid : PaperEligible k phi)
+    (hsat : Satisfiable phi) :
+    PaperEligible k
+      (canonicalRun (countDecision count) phi
+        (Finset.univ : Finset (Fin n)).toList).1 ∧
+    Satisfiable
+      (canonicalRun (countDecision count) phi
+        (Finset.univ : Finset (Fin n)).toList).1 ∧
+    (canonicalRun (countDecision count) phi
+      (Finset.univ : Finset (Fin n)).toList).2 = n ∧
+    ∀ a b : Fin n → Bool,
+      evalCNF (canonicalRun (countDecision count) phi
+        (Finset.univ : Finset (Fin n)).toList).1 a = true →
+      evalCNF (canonicalRun (countDecision count) phi
+        (Finset.univ : Finset (Fin n)).toList).1 b = true →
+      ∀ i : Fin n, a i = b i := by
+  let indices : List (Fin n) := (Finset.univ : Finset (Fin n)).toList
+  have hlen : indices.length = n := by simp [indices]
+  constructor
+  · exact canonicalRun_paperEligible
+      (countDecision count) hk indices phi hvalid
+  constructor
+  · exact canonicalRun_sat_paper
+      (countDecision count)
+      (countDecision_paperEligible_correct count hcount)
+      hk indices phi hvalid hsat
+  constructor
+  · simpa [hlen] using canonicalRun_calls
+      (countDecision count) indices phi
+  · intro a b ha hb i
+    exact canonicalRun_agreement
+      (countDecision count) indices phi a b ha hb i (by simp [indices])
+
 /-!
 ## Differential fixtures from the formally specified CNF evaluator
 

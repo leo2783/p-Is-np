@@ -91,3 +91,19 @@ This is an oracle-work bound; producing input encodings and
 simulating the paper's counting machine still require an explicit
 time model. Therefore this result does not assert a standalone
 subexponential algorithm or resolve P versus NP.
+
+## Accounting for the counting theorem's full legal-input domain
+
+The prior countDecision_correct requires a counting oracle that works
+for every width-bounded, duplicate-free formula, which is stronger
+than the published 2026 theorem's domain. The added PaperEligible
+predicate explicitly carries WidthNodup, every-variable-occurs and
+two-distinct-clauses assumptions. The verified
+paper_eligible_counting_search theorem establishes witness
+reconstruction even when the counting oracle is only correct on that
+narrower domain; each recursive branch is proved to preserve it.
+The paper's global n >= 4 condition can be imposed at the call site
+because the n-step reduction never changes n.
+
+This theorem does not assume oracle correctness outside that input
+domain and does not import the 2026 Turing-machine proof.
