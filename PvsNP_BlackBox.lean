@@ -60,7 +60,7 @@ theorem every_index_queried {n : ℕ} (t : Tree n) (h : SolvesOR t)
     simp [spike, hne]
   have hzero : eval t zeroInput = false := by
     cases hv : eval t zeroInput with
-    | false => exact hv
+    | false => rfl
     | true =>
         obtain ⟨i, hi⟩ := (h zeroInput).mp hv
         simp [zeroInput] at hi
