@@ -129,12 +129,12 @@ theorem chooseBranch_length {n : ℕ}
       have hstep : chooseBranch query phi i = impose phi i true := by
         simp [chooseBranch, hq]
       rw [hstep]
-      simp [impose, Nat.add_comm]
+      simp [impose]
   | true =>
       have hstep : chooseBranch query phi i = impose phi i false := by
         simp [chooseBranch, hq]
       rw [hstep]
-      simp [impose, Nat.add_comm]
+      simp [impose]
 
 def restrictWithCost {n : ℕ} (query : CNF n → Bool) :
     CNF n → List (Fin n) → CNF n × ℕ
