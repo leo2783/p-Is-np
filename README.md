@@ -49,6 +49,11 @@ v0.5.0 library supply precise TM0 complexity classes and Cook–Levin.
   SAT-oracle algorithm keeps its restricted CNF satisfiable while fixing all
   variables in exactly `n` oracle calls and adding exactly `n` unit clauses.
 
+- `PvsNP_Resolution.lean`: propositional resolution rule soundness and
+  inductive derivation soundness, including a proof that a satisfiable
+  clause set admits no empty-clause resolution refutation. The proof
+  operates symbolically without enumerating all assignments.
+
 ## Independent executable checks
 
 `rust/src/main.rs` tests deterministic OR minimax complexity,
