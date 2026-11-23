@@ -1973,6 +1973,9 @@ private def fixtureOracle (phi : CNF 4) : Bool :=
 private def fixtureRun (phi : CNF 4) : CNF 4 × ℕ :=
   canonicalRun fixtureOracle phi ((List.range 4).map fixtureIndex)
 
+private def fixtureCount (phi : CNF 4) : ℕ :=
+  if fixtureOracle phi then 1 else 0
+
 private def fixtureAssignment (mask : Nat) (i : Fin 4) : Bool :=
   mask / (2 ^ i.val) % 2 == 1
 
@@ -1991,7 +1994,7 @@ private def encodeFixtureFormula (phi : CNF 4) : String :=
   | _ => String.intercalate ";" (phi.map encodeFixtureClause)
 
 def emitFixtures : IO Unit := do
-  IO.println "seed\tmask\tvariable\tbit\tcnf\tbefore\tafter\tcanonicalAfter\tcanonicalCount\trunValue\trunCount\trunCalls\tqueryWork"
+  IO.println "seed\tmask\tvariable\tbit\tcnf\tbefore\tafter\tcanonicalAfter\tcanonicalCount\trunValue\trunCount\trunCalls\tqueryWork\tsolvePresent\tsolveMask\tsolveCalls"
   for seed in List.range 96 do
     let phi := fixtureFormula seed
     let encoded := encodeFixtureFormula phi
@@ -2001,6 +2004,13 @@ def emitFixtures : IO Unit := do
     let queryWork := canonicalQueryWork fixtureOracle
       (fun psi => psi.length * psi.length) phi
       ((List.range 4).map fixtureIndex)
+    let solverResult := countingSolveExecutableWithCost fixtureCount phi
+    let solverMask : Nat :=
+      match solverResult.1 with
+      | none => 0
+      | some answer =>
+          ((List.finRange 4).map fun j =>
+            if answer j then 2 ^ j.val else 0).sum
     for mask in List.range 16 do
       let assignment := fixtureAssignment mask
       for column in List.range 4 do
@@ -2012,7 +2022,7 @@ def emitFixtures : IO Unit := do
           let canonicalAfter := evalCNF canonical assignment
           let canonicalCount := canonical.length
           let runValue := evalCNF runResult.1 assignment
-          IO.println s!"{seed}\t{mask}\t{column}\t{bit}\t{encoded}\t{before}\t{after}\t{canonicalAfter}\t{canonicalCount}\t{runValue}\t{runCount}\t{runCalls}\t{queryWork}"
+          IO.println s!"{seed}\t{mask}\t{column}\t{bit}\t{encoded}\t{before}\t{after}\t{canonicalAfter}\t{canonicalCount}\t{runValue}\t{runCount}\t{runCalls}\t{queryWork}\t{solverResult.1.isSome}\t{solverMask}\t{solverResult.2}"
 
 end PvsNP.UnitRestriction
 

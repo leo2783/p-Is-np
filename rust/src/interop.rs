@@ -61,7 +61,7 @@ fn lean_rust_semantics() {
     let mut rows = content.lines();
     assert_eq!(
         rows.next(),
-        Some("seed\tmask\tvariable\tbit\tcnf\tbefore\tafter\tcanonicalAfter\tcanonicalCount\trunValue\trunCount\trunCalls\tqueryWork"),
+        Some("seed\tmask\tvariable\tbit\tcnf\tbefore\tafter\tcanonicalAfter\tcanonicalCount\trunValue\trunCount\trunCalls\tqueryWork\tsolvePresent\tsolveMask\tsolveCalls"),
         "fixture header must match the cross-language protocol"
     );
     let mut checked = 0_usize;
@@ -70,7 +70,7 @@ fn lean_rust_semantics() {
 
     for line in rows {
         let fields: Vec<_> = line.split('\t').collect();
-        assert_eq!(fields.len(), 13, "malformed row: {line}");
+        assert_eq!(fields.len(), 16, "malformed row: {line}");
         let seed: usize = fields[0].parse().expect("seed");
         let mask: usize = fields[1].parse().expect("assignment mask");
         let variable: usize = fields[2].parse().expect("variable");
@@ -85,6 +85,9 @@ fn lean_rust_semantics() {
         let expected_run_count: usize = fields[10].parse().expect("run clause count");
         let expected_run_calls: usize = fields[11].parse().expect("run oracle calls");
         let expected_query_work: usize = fields[12].parse().expect("oracle query work");
+        let expected_solve_present = read_bool(fields[13]);
+        let expected_solve_mask: usize = fields[14].parse().expect("solver witness mask");
+        let expected_solve_calls: usize = fields[15].parse().expect("solver query count");
         let assignment = std::array::from_fn(|i| ((mask >> i) & 1) == 1);
 
         let actual_original = eval_formula(&formula, &assignment);
@@ -139,6 +142,19 @@ fn lean_rust_semantics() {
             "Lean/Rust final clause count mismatch at seed={seed}");
         assert_eq!(eval_formula(&run_formula, &assignment), expected_run,
             "Lean/Rust canonicalRun mismatch at seed={seed}, mask={mask}");
+        let (result, solver_calls) = solve_syntactic_with_cost(formula.clone(), 4);
+        let result_mask: usize = result.as_ref().map_or(0, |bits| {
+            bits.iter()
+                .enumerate()
+                .map(|(i, value)| usize::from(*value) << i)
+                .sum()
+        });
+        assert_eq!(result.is_some(), expected_solve_present,
+            "Lean/Rust solver Option mismatch at seed={seed}");
+        assert_eq!(result_mask, expected_solve_mask,
+            "Lean/Rust solver witness mismatch at seed={seed}");
+        assert_eq!(solver_calls, expected_solve_calls,
+            "Lean/Rust solver call-count mismatch at seed={seed}");
         if actual_original {
             original_true += 1;
         } else {
@@ -189,6 +205,27 @@ fn run_canonical_with_oracle(
 
 fn run_canonical_syntactic(formula: Vec<Vec<Literal>>, n: usize) -> (Vec<Vec<Literal>>, usize) {
     run_canonical_with_oracle(formula, n, |candidate| candidate.len().is_multiple_of(2))
+}
+
+
+fn solve_syntactic_with_cost(
+    formula: Vec<Vec<Literal>>,
+    n: usize,
+) -> (Option<Vec<bool>>, usize) {
+    if formula.len().is_multiple_of(2) {
+        let (restricted, branch_calls) = run_canonical_syntactic(formula, n);
+        let witness = (0..n)
+            .map(|variable| {
+                restricted.contains(&vec![Literal {
+                    variable,
+                    positive: true,
+                }])
+            })
+            .collect();
+        (Some(witness), branch_calls + 1)
+    } else {
+        (None, 1)
+    }
 }
 
 fn normalize_clauses(clauses: &[Vec<Literal>]) -> Vec<Vec<Literal>> {

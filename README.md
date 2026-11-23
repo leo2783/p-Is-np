@@ -96,6 +96,11 @@ establishes exactly `n` queries, their k-CNF and distinct-clause
 preconditions, all-variable occurrence and at least two clauses, and
 the uniform `m+n` size bound for every intermediate oracle input.
 
+The fixture protocol additionally validates the complete executable
+`solveWithDecider`/counting-solver behavior: returned Option state,
+encoded witness bits, and exact SAT/UNSAT oracle call counts are compared
+against an independent Rust implementation of the same branch strategy.
+
 ## Independent executable checks
 
 `rust/src/main.rs` tests deterministic OR minimax complexity,
