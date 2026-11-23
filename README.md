@@ -65,13 +65,16 @@ v0.5.0 library supply precise TM0 complexity classes and Cook–Levin.
 
 ## Executable Lean–Rust specification bridge
 
-The kernel-checked `evalCNF_impose_iff` specification in
+The kernel-checked `evalCNF_impose_iff` and `canonical_full_search` specifications in
 `PvsNP_UnitRestriction.lean` also exports deterministic semantic fixtures.
 The CI `lean` job evaluates 12,288 original/restricted assignment cases using
 the Lean evaluator, and passes the generated records to an independent
 Rust CNF evaluator in `rust/src/interop.rs`. Lean's original, restricted, and normalized semantic outputs and normalized
 clause counts are compared with Rust results, including empty formulas, empty
-clauses, duplicated clauses, and unit restrictions. The CI `rust` job separately runs `cargo test` and
+clauses, duplicated clauses, and unit restrictions. The same generated
+fixtures also cross-check all four steps of `canonicalRun` using a
+syntactic test oracle, comparing the final evaluation, clause count,
+and exact query count across Lean and Rust. The CI `rust` job separately runs `cargo test` and
 `cargo clippy --all-targets -- -D warnings`; the differential test requires
 the `lean-interop` feature and a real Lean-generated fixture file.
 

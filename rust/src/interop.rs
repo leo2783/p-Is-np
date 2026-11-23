@@ -61,7 +61,7 @@ fn lean_rust_semantics() {
     let mut rows = content.lines();
     assert_eq!(
         rows.next(),
-        Some("seed\tmask\tvariable\tbit\tcnf\tbefore\tafter\tcanonicalAfter\tcanonicalCount"),
+        Some("seed\tmask\tvariable\tbit\tcnf\tbefore\tafter\tcanonicalAfter\tcanonicalCount\trunValue\trunCount\trunCalls"),
         "fixture header must match the cross-language protocol"
     );
     let mut checked = 0_usize;
@@ -70,7 +70,7 @@ fn lean_rust_semantics() {
 
     for line in rows {
         let fields: Vec<_> = line.split('\t').collect();
-        assert_eq!(fields.len(), 9, "malformed row: {line}");
+        assert_eq!(fields.len(), 12, "malformed row: {line}");
         let seed: usize = fields[0].parse().expect("seed");
         let mask: usize = fields[1].parse().expect("assignment mask");
         let variable: usize = fields[2].parse().expect("variable");
@@ -81,6 +81,9 @@ fn lean_rust_semantics() {
         let expected_restricted = read_bool(fields[6]);
         let expected_canonical = read_bool(fields[7]);
         let expected_clause_count: usize = fields[8].parse().expect("canonical clause count");
+        let expected_run = read_bool(fields[9]);
+        let expected_run_count: usize = fields[10].parse().expect("run clause count");
+        let expected_run_calls: usize = fields[11].parse().expect("run oracle calls");
         let assignment = std::array::from_fn(|i| ((mask >> i) & 1) == 1);
 
         let actual_original = eval_formula(&formula, &assignment);
@@ -123,6 +126,13 @@ fn lean_rust_semantics() {
             canonical.iter().enumerate().all(|(i, c)| !canonical[..i].contains(c)),
             "Rust normalization left duplicate clauses at seed={seed}"
         );
+        let (run_formula, actual_run_calls) = run_canonical_syntactic(formula.clone(), 4);
+        assert_eq!(actual_run_calls, expected_run_calls,
+            "Lean/Rust oracle call count mismatch at seed={seed}");
+        assert_eq!(run_formula.len(), expected_run_count,
+            "Lean/Rust final clause count mismatch at seed={seed}");
+        assert_eq!(eval_formula(&run_formula, &assignment), expected_run,
+            "Lean/Rust canonicalRun mismatch at seed={seed}, mask={mask}");
         if actual_original {
             original_true += 1;
         } else {
@@ -135,6 +145,37 @@ fn lean_rust_semantics() {
     println!("Validated {checked} Lean/Rust restriction evaluations");
 }
 
+
+
+fn run_canonical_syntactic(mut formula: Vec<Vec<Literal>>, n: usize) -> (Vec<Vec<Literal>>, usize) {
+    let mut calls = 0;
+    for variable in 0..n {
+        let mut false_formula = formula.clone();
+        false_formula.insert(
+            0,
+            vec![Literal {
+                variable,
+                positive: false,
+            }],
+        );
+        let false_formula = normalize_clauses(&false_formula);
+        if false_formula.len() % 2 == 0 {
+            formula = false_formula;
+        } else {
+            let mut true_formula = formula;
+            true_formula.insert(
+                0,
+                vec![Literal {
+                    variable,
+                    positive: true,
+                }],
+            );
+            formula = normalize_clauses(&true_formula);
+        }
+        calls += 1;
+    }
+    (formula, calls)
+}
 
 fn normalize_clauses(clauses: &[Vec<Literal>]) -> Vec<Vec<Literal>> {
     let mut unique = Vec::new();

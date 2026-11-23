@@ -688,6 +688,12 @@ private def fixtureFormula (seed : Nat) : CNF 4 :=
       (fixtureIndex (seed * 13 + c * 5 + j * 7),
         (seed + 11 * c + 3 * j) % 2 == 0)
 
+private def fixtureOracle (phi : CNF 4) : Bool :=
+  phi.length % 2 == 0
+
+private def fixtureRun (phi : CNF 4) : CNF 4 × ℕ :=
+  canonicalRun fixtureOracle phi ((List.range 4).map fixtureIndex)
+
 private def fixtureAssignment (mask : Nat) (i : Fin 4) : Bool :=
   mask / (2 ^ i.val) % 2 == 1
 
@@ -706,10 +712,13 @@ private def encodeFixtureFormula (phi : CNF 4) : String :=
   | _ => String.intercalate ";" (phi.map encodeFixtureClause)
 
 def emitFixtures : IO Unit := do
-  IO.println "seed\tmask\tvariable\tbit\tcnf\tbefore\tafter\tcanonicalAfter\tcanonicalCount"
+  IO.println "seed\tmask\tvariable\tbit\tcnf\tbefore\tafter\tcanonicalAfter\tcanonicalCount\trunValue\trunCount\trunCalls"
   for seed in List.range 96 do
     let phi := fixtureFormula seed
     let encoded := encodeFixtureFormula phi
+    let runResult := fixtureRun phi
+    let runCount := runResult.1.length
+    let runCalls := runResult.2
     for mask in List.range 16 do
       let assignment := fixtureAssignment mask
       for column in List.range 4 do
@@ -720,7 +729,8 @@ def emitFixtures : IO Unit := do
           let canonical := imposeCanonical phi i bit
           let canonicalAfter := evalCNF canonical assignment
           let canonicalCount := canonical.length
-          IO.println s!"{seed}\t{mask}\t{column}\t{bit}\t{encoded}\t{before}\t{after}\t{canonicalAfter}\t{canonicalCount}"
+          let runValue := evalCNF runResult.1 assignment
+          IO.println s!"{seed}\t{mask}\t{column}\t{bit}\t{encoded}\t{before}\t{after}\t{canonicalAfter}\t{canonicalCount}\t{runValue}\t{runCount}\t{runCalls}"
 
 end PvsNP.UnitRestriction
 
