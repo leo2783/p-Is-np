@@ -45,7 +45,9 @@ v0.5.0 library supply precise TM0 complexity classes and Cook–Levin.
 - `PvsNP_UnitRestriction.lean`: semantics of unit clauses on concrete CNF formulas,
   a non-enumerative SAT splitting equivalence, order-independent restrictions,
   and inconsistency of contradictory units. These lemmas justify the CNF
-  restriction step used by a SAT search-to-decision reduction.
+  restriction step used by a SAT search-to-decision reduction. A concrete
+  SAT-oracle algorithm keeps its restricted CNF satisfiable while fixing all
+  variables in exactly `n` oracle calls and adding exactly `n` unit clauses.
 
 ## Independent executable checks
 

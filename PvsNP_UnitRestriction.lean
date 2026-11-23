@@ -87,4 +87,125 @@ theorem conflicting_units_unsatisfiable {n : ℕ}
   rw [hfalse] at htrue
   cases htrue
 
+
+/-!
+## Non-enumerative SAT-oracle branch selection
+
+A correct SAT decision oracle chooses one satisfiable unit restriction
+at each step. The algorithm takes exactly one oracle answer per variable
+and adds exactly one clause per step.
+-/
+def chooseBranch {n : ℕ} (query : CNF n → Bool)
+    (phi : CNF n) (i : Fin n) : CNF n :=
+  if query (impose phi i false) then
+    impose phi i false
+  else
+    impose phi i true
+
+theorem chooseBranch_sat {n : ℕ}
+    (query : CNF n → Bool)
+    (hquery : ∀ phi, query phi = true ↔ Satisfiable phi)
+    (phi : CNF n) (i : Fin n) (hphi : Satisfiable phi) :
+    Satisfiable (chooseBranch query phi i) := by
+  have hsplit := (sat_split phi i).mp hphi
+  cases hq : query (impose phi i false) with
+  | true =>
+      have hfalse : Satisfiable (impose phi i false) := (hquery _).mp hq
+      simpa [chooseBranch, hq] using hfalse
+  | false =>
+      have hnot : ¬ Satisfiable (impose phi i false) := by
+        intro hfalse
+        have hyes : query (impose phi i false) = true := (hquery _).mpr hfalse
+        rw [hq] at hyes
+        cases hyes
+      have htrue : Satisfiable (impose phi i true) := hsplit.resolve_left hnot
+      simpa [chooseBranch, hq] using htrue
+
+theorem chooseBranch_length {n : ℕ}
+    (query : CNF n → Bool) (phi : CNF n) (i : Fin n) :
+    (chooseBranch query phi i).length = phi.length + 1 := by
+  cases hq : query (impose phi i false) <;>
+    simp [chooseBranch, hq, impose, Nat.add_comm]
+
+def restrictWithCost {n : ℕ} (query : CNF n → Bool) :
+    CNF n → List (Fin n) → CNF n × ℕ
+  | phi, [] => (phi, 0)
+  | phi, i :: rest =>
+      let next := chooseBranch query phi i
+      let result := restrictWithCost query next rest
+      (result.1, result.2 + 1)
+
+theorem restrictions_sat {n : ℕ}
+    (query : CNF n → Bool)
+    (hquery : ∀ phi, query phi = true ↔ Satisfiable phi) :
+    ∀ (indices : List (Fin n)) (phi : CNF n),
+      Satisfiable phi →
+      Satisfiable (restrictWithCost query phi indices).1 := by
+  intro indices
+  induction indices with
+  | nil =>
+      intro phi h
+      simpa [restrictWithCost] using h
+  | cons i rest ih =>
+      intro phi h
+      have hnext := chooseBranch_sat query hquery phi i h
+      simpa [restrictWithCost] using ih (chooseBranch query phi i) hnext
+
+theorem restrictions_calls {n : ℕ}
+    (query : CNF n → Bool) :
+    ∀ (indices : List (Fin n)) (phi : CNF n),
+      (restrictWithCost query phi indices).2 = indices.length := by
+  intro indices
+  induction indices with
+  | nil =>
+      intro phi
+      rfl
+  | cons i rest ih =>
+      intro phi
+      calc
+        (restrictWithCost query phi (i :: rest)).2 =
+            (restrictWithCost query (chooseBranch query phi i) rest).2 + 1 := by
+              simp [restrictWithCost]
+        _ = rest.length + 1 := by rw [ih]
+        _ = (i :: rest).length := by simp [Nat.add_comm]
+
+theorem restrictions_size {n : ℕ}
+    (query : CNF n → Bool) :
+    ∀ (indices : List (Fin n)) (phi : CNF n),
+      (restrictWithCost query phi indices).1.length =
+        phi.length + indices.length := by
+  intro indices
+  induction indices with
+  | nil =>
+      intro phi
+      simp [restrictWithCost]
+  | cons i rest ih =>
+      intro phi
+      calc
+        (restrictWithCost query phi (i :: rest)).1.length =
+            (restrictWithCost query (chooseBranch query phi i) rest).1.length := by
+              simp [restrictWithCost]
+        _ = (chooseBranch query phi i).length + rest.length := ih _
+        _ = phi.length + (i :: rest).length := by
+              rw [chooseBranch_length]
+              simp
+              omega
+
+theorem restrict_all_variables {n : ℕ}
+    (query : CNF n → Bool)
+    (hquery : ∀ phi, query phi = true ↔ Satisfiable phi)
+    (phi : CNF n) (hsat : Satisfiable phi) :
+    Satisfiable
+        (restrictWithCost query phi (Finset.univ : Finset (Fin n)).toList).1 ∧
+    (restrictWithCost query phi (Finset.univ : Finset (Fin n)).toList).2 = n ∧
+    (restrictWithCost query phi (Finset.univ : Finset (Fin n)).toList).1.length =
+      phi.length + n := by
+  let vars : List (Fin n) := (Finset.univ : Finset (Fin n)).toList
+  have hlen : vars.length = n := by simp [vars]
+  constructor
+  · exact restrictions_sat query hquery vars phi hsat
+  constructor
+  · simpa [hlen] using restrictions_calls query vars phi
+  · simpa [hlen] using restrictions_size query vars phi
+
 end PvsNP.UnitRestriction
