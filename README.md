@@ -57,6 +57,9 @@ v0.5.0 library supply precise TM0 complexity classes and Cook–Levin.
 - `PvsNP_ThreeSAT_Restriction.lean`: native NPComplete ThreeCNF unit constraints,
   exact 3-SAT splitting, and boundedness preservation, checked alongside the
   actual TM0 complexity definitions by the separate dependency workflow.
+  The native self-reduction now proves SAT preservation, boundedness, exactly
+  `n` decision queries and `n` unit clauses, plus uniqueness of the
+  satisfying assignment on the formula's `n` declared variables.
 
 ## Independent executable checks
 
