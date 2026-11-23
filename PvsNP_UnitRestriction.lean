@@ -281,6 +281,98 @@ theorem raw_impose_can_duplicate :
     ¬ (impose ([[(0, true)]] : CNF 1) (0 : Fin 1) true).Nodup := by
   decide
 
+
+/-!
+## Valid-input decision-oracle reduction
+
+The 2026 SAT interface accepts only formulas with bounded clause width
+and no duplicate clauses. The abstract decision oracle below is required
+to be correct only on this class of inputs. This theorem closes a
+precondition gap in an otherwise standard search-to-decision reduction.
+-/
+
+def WidthNodup {n : ℕ} (k : ℕ) (phi : CNF n) : Prop :=
+  (∀ c, c ∈ phi → c.length ≤ k) ∧ phi.Nodup
+
+theorem imposeCanonical_widthNodup {n k : ℕ}
+    (phi : CNF n) (i : Fin n) (bit : Bool)
+    (hk : 1 ≤ k) (hphi : WidthNodup k phi) :
+    WidthNodup k (imposeCanonical phi i bit) :=
+  imposeCanonical_preserves_width phi i bit hk hphi.1
+
+theorem canonicalize_satisfiable_iff {n : ℕ} (phi : CNF n) :
+    Satisfiable (canonicalizeCNF phi) ↔ Satisfiable phi := by
+  constructor
+  · rintro ⟨a, ha⟩
+    exact ⟨a, (canonicalize_eval_true_iff phi a).mp ha⟩
+  · rintro ⟨a, ha⟩
+    exact ⟨a, (canonicalize_eval_true_iff phi a).mpr ha⟩
+
+theorem canonical_sat_split {n : ℕ} (phi : CNF n) (i : Fin n) :
+    Satisfiable phi ↔
+      Satisfiable (imposeCanonical phi i false) ∨
+      Satisfiable (imposeCanonical phi i true) := by
+  constructor
+  · intro hsat
+    rcases (sat_split phi i).mp hsat with hf | ht
+    · left
+      exact (canonicalize_satisfiable_iff (impose phi i false)).mpr hf
+    · right
+      exact (canonicalize_satisfiable_iff (impose phi i true)).mpr ht
+  · intro h
+    apply (sat_split phi i).mpr
+    rcases h with hf | ht
+    · left
+      exact (canonicalize_satisfiable_iff (impose phi i false)).mp hf
+    · right
+      exact (canonicalize_satisfiable_iff (impose phi i true)).mp ht
+
+def chooseCanonicalBranch {n : ℕ}
+    (query : CNF n → Bool) (phi : CNF n) (i : Fin n) : CNF n :=
+  if query (imposeCanonical phi i false) then
+    imposeCanonical phi i false
+  else
+    imposeCanonical phi i true
+
+theorem chooseCanonicalBranch_widthNodup {n k : ℕ}
+    (query : CNF n → Bool) (phi : CNF n) (i : Fin n)
+    (hk : 1 ≤ k) (hphi : WidthNodup k phi) :
+    WidthNodup k (chooseCanonicalBranch query phi i) := by
+  unfold chooseCanonicalBranch
+  cases hq : query (imposeCanonical phi i false) with
+  | false =>
+      simpa [hq] using imposeCanonical_widthNodup phi i true hk hphi
+  | true =>
+      simpa [hq] using imposeCanonical_widthNodup phi i false hk hphi
+
+theorem chooseCanonicalBranch_sat {n k : ℕ}
+    (query : CNF n → Bool)
+    (hquery : ∀ phi, WidthNodup k phi →
+      (query phi = true ↔ Satisfiable phi))
+    (phi : CNF n) (i : Fin n)
+    (hk : 1 ≤ k) (hphi : WidthNodup k phi)
+    (hsat : Satisfiable phi) :
+    Satisfiable (chooseCanonicalBranch query phi i) := by
+  have hsplit := (canonical_sat_split phi i).mp hsat
+  have hvalid : WidthNodup k (imposeCanonical phi i false) :=
+    imposeCanonical_widthNodup phi i false hk hphi
+  unfold chooseCanonicalBranch
+  cases hq : query (imposeCanonical phi i false) with
+  | true =>
+      have hf : Satisfiable (imposeCanonical phi i false) :=
+        (hquery _ hvalid).mp hq
+      simpa [hq] using hf
+  | false =>
+      have hn : ¬ Satisfiable (imposeCanonical phi i false) := by
+        intro hf
+        have hyes : query (imposeCanonical phi i false) = true :=
+          (hquery _ hvalid).mpr hf
+        rw [hq] at hyes
+        cases hyes
+      have ht : Satisfiable (imposeCanonical phi i true) :=
+        hsplit.resolve_left hn
+      simpa [hq] using ht
+
 /-!
 ## Differential fixtures from the formally specified CNF evaluator
 
