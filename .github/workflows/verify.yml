@@ -45,7 +45,7 @@ jobs:
       - name: Elaborate and kernel-check all proof files
         run: |
           set -euo pipefail
-          for f in PvsNP.lean PvsNP_BlackBox.lean PvsNP_Counting.lean PvsNP_ExplicitCircuit.lean PvsNP_TwoCNF_Expressivity.lean PvsNP_MajorityClosure.lean PvsNP_Projected2CNF.lean PvsNP_SelfReduction.lean; do
+          for f in PvsNP.lean PvsNP_BlackBox.lean PvsNP_Counting.lean PvsNP_ExplicitCircuit.lean PvsNP_TwoCNF_Expressivity.lean PvsNP_MajorityClosure.lean PvsNP_Projected2CNF.lean PvsNP_SelfReduction.lean PvsNP_UnitRestriction.lean; do
             echo "::group::$f"
             lake env lean "$f"
             echo "::endgroup::"

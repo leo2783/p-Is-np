@@ -42,6 +42,11 @@ v0.5.0 library supply precise TM0 complexity classes and Cook–Levin.
   combinatorial self-reduction; polynomial running time still depends on
   the time to evaluate and prepare the oracle queries.
 
+- `PvsNP_UnitRestriction.lean`: semantics of unit clauses on concrete CNF formulas,
+  a non-enumerative SAT splitting equivalence, order-independent restrictions,
+  and inconsistency of contradictory units. These lemmas justify the CNF
+  restriction step used by a SAT search-to-decision reduction.
+
 ## Independent executable checks
 
 `rust/src/main.rs` tests deterministic OR minimax complexity,
