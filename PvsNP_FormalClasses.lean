@@ -27,4 +27,31 @@ theorem sat_not_in_P_iff_P_ne_NP :
   · intro hpne hsat
     exact hpne (sat_in_P_iff_P_eq_NP.mp hsat)
 
+
+open NPComplete.SAT (ThreeSAT)
+
+theorem threeSAT_in_P_iff_P_eq_NP :
+    InP NPComplete.SAT.ValidThreeCNF.encode
+      (ThreeSAT ∘ Subtype.val) ↔ PeqNP := by
+  constructor
+  · exact threeSAT_InP_implies_PeqNP
+  · intro h
+    exact h NPComplete.SAT.ValidThreeCNF.encode (ThreeSAT ∘ Subtype.val)
+      threeSAT_inNP
+
+theorem threeSAT_not_in_P_iff_P_ne_NP :
+    (¬ InP NPComplete.SAT.ValidThreeCNF.encode
+      (ThreeSAT ∘ Subtype.val)) ↔ PneNP := by
+  constructor
+  · intro hnot hpeq
+    exact hnot (threeSAT_in_P_iff_P_eq_NP.mpr hpeq)
+  · intro hpne hsat
+    exact hpne (threeSAT_in_P_iff_P_eq_NP.mp hsat)
+
+theorem SAT_in_P_iff_threeSAT_in_P :
+    InP encodeCNF SAT ↔
+      InP NPComplete.SAT.ValidThreeCNF.encode
+        (ThreeSAT ∘ Subtype.val) :=
+  sat_in_P_iff_P_eq_NP.trans threeSAT_in_P_iff_P_eq_NP.symm
+
 end PvsNP.FormalClasses
