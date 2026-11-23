@@ -1513,7 +1513,7 @@ and its oracle usage is exactly one call for UNSAT inputs or n+1
 calls for SAT inputs.
 -/
 
-def countingSolve {n : ℕ}
+noncomputable def countingSolve {n : ℕ}
     (count : CNF n → ℕ) (phi : CNF n) :
     Option (Fin n → Bool) :=
   if countDecision count phi then
