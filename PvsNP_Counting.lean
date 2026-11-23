@@ -62,6 +62,43 @@ theorem hard_function_for_eight_input_and_ten_gates
   apply circuit_description_counting 8 10 decode
   norm_num
 
+
+/-!
+## A total interpreter for explicit descriptions
+
+Wires 0..n-1 hold input bits. In ascending gate order, gate i appends
+one computed bit. A gate selecting a future wire receives false; thus
+every code is interpreted totality, while well-formed acyclic circuits
+have their usual semantics.
+-/
+def runCircuitDescription (n s : ℕ)
+    (code : CircuitDescription n s) (input : Fin n → Bool) : Array Bool :=
+  (List.finRange s).foldl
+    (fun state i =>
+      let gate := code.2 i
+      state.push (gate.2.2
+        (state[gate.1.val]?.getD false)
+        (state[gate.2.1.val]?.getD false)))
+    (Array.ofFn input)
+
+def circuitValue (n s : ℕ)
+    (code : CircuitDescription n s) (input : Fin n → Bool) : Bool :=
+  ((runCircuitDescription n s code input)[code.1.val]?).getD false
+
+theorem explicit_circuit_counting_lower_bound (n s : ℕ)
+    (hsmall : (n + s) * (16 * (n + s) ^ 2) ^ s < 2 ^ (2 ^ n)) :
+    ∃ f : (Fin n → Bool) → Bool,
+      ∀ code : CircuitDescription n s, circuitValue n s code ≠ f := by
+  apply exists_function_outside_family (circuitValue n s)
+  rw [circuit_description_card]
+  simpa only [Fintype.card_fun, Fintype.card_fin, Fintype.card_bool] using hsmall
+
+theorem explicit_eight_bit_circuit_lower_bound :
+    ∃ f : (Fin 8 → Bool) → Bool,
+      ∀ code : CircuitDescription 8 10, circuitValue 8 10 code ≠ f := by
+  apply explicit_circuit_counting_lower_bound 8 10
+  norm_num
+
 end PvsNP.Counting
 
 namespace PvsNP.Bridge
