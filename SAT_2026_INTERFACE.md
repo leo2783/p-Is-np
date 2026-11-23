@@ -142,3 +142,14 @@ The `countingSolveWithCost_calls` theorem shows exactly one oracle
 call on UNSAT inputs and `n+1` calls on SAT inputs. These results are
 conditional on the counting oracle's correctness and do not assert a
 polynomial-time oracle.
+
+## Full solver oracle-work upper bound
+
+The proved `totalCountingOracleBudget_bound` includes the initial
+counting decision and the full candidate-query trace. For a
+nondecreasing per-query work bound `T` on the legal `PaperEligible`
+domain, total oracle work is bounded by `(n+1) * T(m+n)` for a
+formula with `m` clauses and `n` variables. This abstract cost
+excludes formula encoding, data movement, and machine simulation;
+those must be formalized separately before asserting a machine-time
+bound for the full witness algorithm.

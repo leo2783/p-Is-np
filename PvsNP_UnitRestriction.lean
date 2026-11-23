@@ -1649,6 +1649,48 @@ theorem countingSolve_total_spec {n k : ℕ}
       countingSolve_some_complete count hcount hk phi hvalid hsat
     exact ⟨a, ha⟩
 
+
+/-!
+## Total counting-oracle work including the initial decision call
+
+The prior trace bound accounts for the n false-branch queries.
+A complete total solver first checks whether the source input has a
+satisfying assignment. Including this initial count, the full
+oracle-work budget is bounded by (n+1)*T(m+n) whenever each query
+is within T of its clause count and T is monotone. This is a
+symbolic oracle-work result; constructing encodings and simulating
+an external Turing machine remain separate obligations.
+-/
+
+noncomputable def totalCountingOracleBudget {n : ℕ}
+    (count : CNF n → ℕ)
+    (work : CNF n → ℕ) (phi : CNF n) : ℕ :=
+  work phi +
+    canonicalQueryWork (countDecision count) work phi
+      (Finset.univ : Finset (Fin n)).toList
+
+theorem totalCountingOracleBudget_bound {n k : ℕ}
+    (count : CNF n → ℕ)
+    (work : CNF n → ℕ) (T : ℕ → ℕ)
+    (hwork : ∀ psi, PaperEligible k psi →
+      work psi ≤ T psi.length)
+    (hmono : Monotone T) (phi : CNF n)
+    (hk : 1 ≤ k) (hvalid : PaperEligible k phi) :
+    totalCountingOracleBudget count work phi ≤
+      (n + 1) * T (phi.length + n) := by
+  have hfirst : work phi ≤ T (phi.length + n) :=
+    (hwork phi hvalid).trans (hmono (by omega))
+  have hrest := paper_eligible_counting_work_bound
+    count work T hwork hmono phi hk hvalid
+  calc
+    totalCountingOracleBudget count work phi =
+        work phi + canonicalQueryWork (countDecision count)
+          work phi (Finset.univ : Finset (Fin n)).toList := rfl
+    _ ≤ T (phi.length + n) + n * T (phi.length + n) :=
+      Nat.add_le_add hfirst hrest
+    _ = (n + 1) * T (phi.length + n) := by
+      simp [Nat.succ_mul, Nat.add_comm]
+
 /-!
 ## Differential fixtures from the formally specified CNF evaluator
 
