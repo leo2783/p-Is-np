@@ -1273,6 +1273,68 @@ theorem paper_eligible_counting_search {n k : ℕ}
     exact canonicalRun_agreement
       (countDecision count) indices phi a b ha hb i (by simp [indices])
 
+
+/-!
+## Query-cost bound over the paper's exact legal input domain
+
+The oracle cost assumption below is needed only on the formulas the
+algorithm actually queries. Every candidate remains PaperEligible;
+hence the total work bound n * T(m+n) holds even if no resource bound
+is known for other formulas.
+-/
+
+theorem canonicalQueries_paperEligible {n k : ℕ}
+    (query : CNF n → Bool) (hk : 1 ≤ k) :
+    ∀ (indices : List (Fin n)) (phi : CNF n),
+      PaperEligible k phi →
+      ∀ psi, psi ∈ canonicalQueries query phi indices →
+        PaperEligible k psi := by
+  intro indices
+  induction indices with
+  | nil =>
+      intro phi _ psi hmem
+      simp [canonicalQueries] at hmem
+  | cons i rest ih =>
+      intro phi hvalid psi hmem
+      have hcases :
+          psi = imposeCanonical phi i false ∨
+          psi ∈ canonicalQueries query
+            (chooseCanonicalBranch query phi i) rest := by
+        simpa [canonicalQueries] using hmem
+      rcases hcases with hfirst | htail
+      · subst psi
+        exact imposeCanonical_paperEligible phi i false hk hvalid
+      · exact ih (chooseCanonicalBranch query phi i)
+          (chooseCanonicalBranch_paperEligible query phi i hk hvalid)
+          psi htail
+
+theorem paper_eligible_counting_work_bound {n k : ℕ}
+    (count : CNF n → ℕ)
+    (work : CNF n → ℕ) (T : ℕ → ℕ)
+    (hwork : ∀ psi, PaperEligible k psi → work psi ≤ T psi.length)
+    (hmono : Monotone T) (phi : CNF n)
+    (hk : 1 ≤ k) (hvalid : PaperEligible k phi) :
+    canonicalQueryWork (countDecision count) work phi
+      (Finset.univ : Finset (Fin n)).toList ≤
+      n * T (phi.length + n) := by
+  let indices : List (Fin n) := (Finset.univ : Finset (Fin n)).toList
+  have hlen : indices.length = n := by simp [indices]
+  have hbound : ∀ psi,
+      psi ∈ canonicalQueries (countDecision count) phi indices →
+      work psi ≤ T (phi.length + n) := by
+    intro psi hmem
+    have heligible := canonicalQueries_paperEligible
+      (countDecision count) hk indices phi hvalid psi hmem
+    have hsize := canonicalQueries_size_bound
+      (countDecision count) indices phi psi hmem
+    have hsize' : psi.length ≤ phi.length + n := by
+      simpa [hlen] using hsize
+    exact (hwork psi heligible).trans (hmono hsize')
+  have htotal := canonicalQueryWork_uniform_bound
+    (countDecision count) work (T (phi.length + n))
+    indices phi hbound
+  simpa [hlen] using htotal
+
 /-!
 ## Differential fixtures from the formally specified CNF evaluator
 

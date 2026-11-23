@@ -365,3 +365,64 @@ fn syntactic_query_work(mut formula: Vec<Vec<Literal>>, n: usize) -> usize {
     }
     total
 }
+
+
+/// Check the entire candidate-query trace against the 2026 paper's
+/// bounded-width, distinct-clause, all-variable-occurring domain.
+#[test]
+fn two_sat_queries_preserve_paper_input_domain() {
+    use std::cell::RefCell;
+
+    let n = 4usize;
+    for seed in 0..64usize {
+        let chosen: [bool; 4] =
+            std::array::from_fn(|i| ((seed >> i) & 1) == 1);
+        let mut formula: Vec<Vec<Literal>> = (0..n)
+            .map(|i| vec![Literal {
+                variable: i,
+                positive: chosen[i],
+            }])
+            .collect();
+        for i in 0..n {
+            formula.push(vec![
+                Literal {
+                    variable: i,
+                    positive: chosen[i],
+                },
+                Literal {
+                    variable: (i + 1) % n,
+                    positive: !chosen[(i + 1) % n],
+                },
+            ]);
+        }
+        let formula = normalize_clauses(&formula);
+        let observed = RefCell::new(Vec::<Vec<Vec<Literal>>>::new());
+        let (result, calls) = run_canonical_with_oracle(
+            formula.clone(),
+            n,
+            |candidate| {
+                observed.borrow_mut().push(candidate.to_vec());
+                two_sat_query(n, candidate)
+            },
+        );
+        assert_eq!(calls, n);
+        let queries = observed.into_inner();
+        assert_eq!(queries.len(), n);
+        for candidate in &queries {
+            assert!(
+                candidate.iter().enumerate().all(|(i, c)| !candidate[..i].contains(c)),
+                "query contains duplicated clauses for seed={seed}"
+            );
+            assert!(candidate.iter().all(|clause| clause.len() <= 2));
+            assert!(candidate.len() >= 2);
+            assert!(
+                (0..n).all(|i| candidate.iter().any(|clause|
+                    clause.iter().any(|lit| lit.variable == i))),
+                "query dropped a declared variable for seed={seed}"
+            );
+            assert!(candidate.len() <= formula.len() + n);
+        }
+        assert!(two_sat_query(n, &result));
+        assert_eq!(result.len() <= formula.len() + n, true);
+    }
+}

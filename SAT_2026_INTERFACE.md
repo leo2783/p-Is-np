@@ -107,3 +107,17 @@ because the n-step reduction never changes n.
 
 This theorem does not assume oracle correctness outside that input
 domain and does not import the 2026 Turing-machine proof.
+
+## Oracle work on exactly the published legal input domain
+
+The new canonicalQueries_paperEligible and
+paper_eligible_counting_work_bound results prove that every actual
+query remains within the full PaperEligible domain and that a
+nondecreasing time bound T applied only on that domain still yields
+the total oracle bound n*T(m+n).
+
+A Rust 2-SAT regression now captures each candidate query over
+64 satisfiable base inputs and checks distinct clauses, width <= 2,
+all-variable occurrence, at least two clauses, and the m+n bound.
+This supplements the Lean proof without claiming a real time bound
+for the external counting machine.
