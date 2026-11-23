@@ -9,7 +9,7 @@ theorem exists_function_outside_family
     ∃ target : Inputs → Bool, ∀ c : Circuits, interpret c ≠ target := by
   classical
   by_contra hnone
-  push_neg at hnone
+  push Not at hnone
   have hsurj : Function.Surjective interpret := by
     intro target
     obtain ⟨c, hc⟩ := hnone target
@@ -46,8 +46,7 @@ theorem circuit_description_card (n s : ℕ) :
     Fintype.card (CircuitDescription n s) =
       (n + s) * (16 * (n + s) ^ 2) ^ s := by
   classical
-  simp [CircuitDescription, Fintype.card_fun, Fintype.card_prod]
-  ring
+  simp [CircuitDescription, Fintype.card_prod] <;> ring <;> simp
 
 theorem circuit_description_counting (n s : ℕ)
     (decode : CircuitDescription n s → (Fin (2 ^ n) → Bool))
@@ -55,7 +54,7 @@ theorem circuit_description_counting (n s : ℕ)
     ∃ f : Fin (2 ^ n) → Bool, ∀ d, decode d ≠ f := by
   apply exists_function_outside_family decode
   rw [circuit_description_card]
-  exact hsmall
+  simpa using hsmall
 
 theorem hard_function_for_eight_input_and_ten_gates
     (decode : CircuitDescription 8 10 → (Fin (2 ^ 8) → Bool)) :
