@@ -33,6 +33,15 @@ v0.5.0 library supply precise TM0 complexity classes and Cook–Levin.
   existentially quantified auxiliary variables, precluding even 2-CNF
   gadgets for odd 3-bit parity.
 
+## Non-exhaustive witness extraction
+
+- `PvsNP_SelfReduction.lean`: a greedy search-to-decision reduction on Boolean
+  witnesses. Assuming a correct decision oracle for satisfiable partial
+  assignments, a length-`n` satisfying witness is constructed with exactly
+  `n` oracle calls, including a machine-checked cost counter. This is the
+  combinatorial self-reduction; polynomial running time still depends on
+  the time to evaluate and prepare the oracle queries.
+
 ## Independent executable checks
 
 `rust/src/main.rs` tests deterministic OR minimax complexity,
