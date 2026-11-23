@@ -24,9 +24,17 @@ def evalOneGate : OneGateCode3 → (Fin 3 → Bool) → Bool
 def parity3 (x : Fin 3 → Bool) : Bool :=
   Bool.xor (Bool.xor (x 0) (x 1)) (x 2)
 
+set_option maxRecDepth 8192 in
+theorem parity3_has_distinguishing_input :
+    ∀ circuit : OneGateCode3, ∃ x : Fin 3 → Bool,
+      evalOneGate circuit x ≠ parity3 x := by
+  decide
+
 theorem parity3_not_one_gate :
     ∀ circuit : OneGateCode3, evalOneGate circuit ≠ parity3 := by
-  decide
+  intro circuit heq
+  obtain ⟨x, hdiff⟩ := parity3_has_distinguishing_input circuit
+  exact hdiff (congrFun heq x)
 
 def twoGateParity3 (x : Fin 3 → Bool) : Bool :=
   Bool.xor (Bool.xor (x 0) (x 1)) (x 2)
