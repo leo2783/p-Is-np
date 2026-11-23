@@ -582,7 +582,7 @@ private def encodeFixtureFormula (phi : CNF 4) : String :=
   | _ => String.intercalate ";" (phi.map encodeFixtureClause)
 
 def emitFixtures : IO Unit := do
-  IO.println "seed\tmask\tvariable\tbit\tcnf\tbefore\tafter"
+  IO.println "seed\tmask\tvariable\tbit\tcnf\tbefore\tafter\tcanonicalAfter\tcanonicalCount"
   for seed in List.range 96 do
     let phi := fixtureFormula seed
     let encoded := encodeFixtureFormula phi
@@ -593,7 +593,10 @@ def emitFixtures : IO Unit := do
         for bit in ([false, true] : List Bool) do
           let before := evalCNF phi assignment
           let after := evalCNF (impose phi i bit) assignment
-          IO.println s!"{seed}\t{mask}\t{column}\t{bit}\t{encoded}\t{before}\t{after}"
+          let canonical := imposeCanonical phi i bit
+          let canonicalAfter := evalCNF canonical assignment
+          let canonicalCount := canonical.length
+          IO.println s!"{seed}\t{mask}\t{column}\t{bit}\t{encoded}\t{before}\t{after}\t{canonicalAfter}\t{canonicalCount}"
 
 end PvsNP.UnitRestriction
 

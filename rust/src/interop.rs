@@ -61,7 +61,7 @@ fn lean_rust_semantics() {
     let mut rows = content.lines();
     assert_eq!(
         rows.next(),
-        Some("seed\tmask\tvariable\tbit\tcnf\tbefore\tafter"),
+        Some("seed\tmask\tvariable\tbit\tcnf\tbefore\tafter\tcanonicalAfter\tcanonicalCount"),
         "fixture header must match the cross-language protocol"
     );
     let mut checked = 0_usize;
@@ -70,7 +70,7 @@ fn lean_rust_semantics() {
 
     for line in rows {
         let fields: Vec<_> = line.split('\t').collect();
-        assert_eq!(fields.len(), 7, "malformed row: {line}");
+        assert_eq!(fields.len(), 9, "malformed row: {line}");
         let seed: usize = fields[0].parse().expect("seed");
         let mask: usize = fields[1].parse().expect("assignment mask");
         let variable: usize = fields[2].parse().expect("variable");
@@ -79,6 +79,8 @@ fn lean_rust_semantics() {
         let formula = read_formula(fields[4]);
         let expected_original = read_bool(fields[5]);
         let expected_restricted = read_bool(fields[6]);
+        let expected_canonical = read_bool(fields[7]);
+        let expected_clause_count: usize = fields[8].parse().expect("canonical clause count");
         let assignment = std::array::from_fn(|i| ((mask >> i) & 1) == 1);
 
         let actual_original = eval_formula(&formula, &assignment);
@@ -104,6 +106,22 @@ fn lean_rust_semantics() {
             actual_restricted,
             actual_original && assignment[variable] == bit,
             "restriction semantics failed at seed={seed}, mask={mask}"
+        );
+        let canonical = normalize_clauses(&restricted);
+        assert_eq!(
+            canonical.len(), expected_clause_count,
+            "Lean/Rust canonical clause count mismatch at seed={seed}, mask={mask}, variable={variable}, bit={bit}"
+        );
+        assert_eq!(
+            eval_formula(&canonical, &assignment),
+            expected_canonical,
+            "Lean/Rust canonical evaluation mismatch at seed={seed}, mask={mask}, variable={variable}, bit={bit}"
+        );
+        assert_eq!(expected_canonical, expected_restricted,
+            "Lean canonicalization changed formula meaning at seed={seed}");
+        assert!(
+            canonical.iter().enumerate().all(|(i, c)| !canonical[..i].contains(c)),
+            "Rust normalization left duplicate clauses at seed={seed}"
         );
         if actual_original {
             original_true += 1;
