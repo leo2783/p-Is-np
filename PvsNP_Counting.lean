@@ -28,6 +28,41 @@ theorem exists_hard_n_bit_function
   apply exists_function_outside_family decode
   simpa using hsmall
 
+
+/-!
+## Circuit-description counting
+
+A description records s arbitrary binary Boolean truth tables and s pairs
+of source wires, plus an output wire. It overcounts proper acyclic circuits,
+which is safe for information-theoretic lower bounds. The decoder is abstract:
+an explicit circuit evaluator is a separate formalization obligation.
+-/
+
+abbrev CircuitDescription (n s : ℕ) :=
+  Fin (n + s) × (Fin s →
+    (Fin (n + s) × Fin (n + s) × (Bool → Bool → Bool)))
+
+theorem circuit_description_card (n s : ℕ) :
+    Fintype.card (CircuitDescription n s) =
+      (n + s) * (16 * (n + s) ^ 2) ^ s := by
+  classical
+  simp [CircuitDescription, Fintype.card_fun, Fintype.card_prod]
+  ring
+
+theorem circuit_description_counting (n s : ℕ)
+    (decode : CircuitDescription n s → (Fin (2 ^ n) → Bool))
+    (hsmall : (n + s) * (16 * (n + s) ^ 2) ^ s < 2 ^ (2 ^ n)) :
+    ∃ f : Fin (2 ^ n) → Bool, ∀ d, decode d ≠ f := by
+  apply exists_function_outside_family decode
+  rw [circuit_description_card]
+  exact hsmall
+
+theorem hard_function_for_eight_input_and_ten_gates
+    (decode : CircuitDescription 8 10 → (Fin (2 ^ 8) → Bool)) :
+    ∃ f : Fin (2 ^ 8) → Bool, ∀ d, decode d ≠ f := by
+  apply circuit_description_counting 8 10 decode
+  norm_num
+
 end PvsNP.Counting
 
 namespace PvsNP.Bridge
