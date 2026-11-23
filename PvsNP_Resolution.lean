@@ -6,7 +6,7 @@ import Mathlib
 Resolution derives C ∨ D from (p ∨ C) and (¬p ∨ D).
 We prove the soundness of the inference rule, then establish that
 every clause in an inductive resolution derivation is entailed by
-the initial clauses. A satisfiable CNF therefore cannot admit an
+the initial clauses. A satisfiable CNF therefore has no
 empty-clause resolution derivation.
 
 These are general symbolic proofs; no truth-table enumeration is used.
