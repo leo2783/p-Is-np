@@ -547,6 +547,130 @@ theorem canonical_full_search {n k : ℕ}
   · intro a b ha hb i
     exact canonicalRun_agreement query vars phi a b ha hb i (by simp [vars])
 
+
+/-!
+## Additional input hypotheses for the 2026 counting result
+
+Besides width and clause uniqueness, that theorem assumes every
+declared variable occurs and at least two clauses are present.
+Their preservation follows from exact clause membership under
+canonicalization, rather than enumerating satisfying assignments.
+-/
+
+def AllVariablesOccur {n : ℕ} (phi : CNF n) : Prop :=
+  ∀ v : Fin n, ∃ clause : Clause n, clause ∈ phi ∧
+    ∃ lit : Literal n, lit ∈ clause ∧ lit.1 = v
+
+def HasTwoDistinctClauses {n : ℕ} (phi : CNF n) : Prop :=
+  ∃ c d : Clause n, c ≠ d ∧ c ∈ phi ∧ d ∈ phi
+
+theorem imposeCanonical_allVariablesOccur {n : ℕ}
+    (phi : CNF n) (i : Fin n) (bit : Bool)
+    (hall : AllVariablesOccur phi) :
+    AllVariablesOccur (imposeCanonical phi i bit) := by
+  intro v
+  obtain ⟨clause, hclause, lit, hlit, hvar⟩ := hall v
+  refine ⟨clause, ?_, lit, hlit, hvar⟩
+  have hm : clause ∈ impose phi i bit := List.mem_cons_of_mem _ hclause
+  simpa only [imposeCanonical, canonicalizeCNF, List.mem_dedup] using hm
+
+theorem imposeCanonical_twoDistinct {n : ℕ}
+    (phi : CNF n) (i : Fin n) (bit : Bool)
+    (htwo : HasTwoDistinctClauses phi) :
+    HasTwoDistinctClauses (imposeCanonical phi i bit) := by
+  obtain ⟨c, d, hne, hc, hd⟩ := htwo
+  refine ⟨c, d, hne, ?_, ?_⟩
+  · have h : c ∈ impose phi i bit := List.mem_cons_of_mem _ hc
+    simpa only [imposeCanonical, canonicalizeCNF, List.mem_dedup] using h
+  · have h : d ∈ impose phi i bit := List.mem_cons_of_mem _ hd
+    simpa only [imposeCanonical, canonicalizeCNF, List.mem_dedup] using h
+
+theorem twoDistinct_minClauses {n : ℕ}
+    (phi : CNF n) (htwo : HasTwoDistinctClauses phi) :
+    2 ≤ phi.length := by
+  obtain ⟨c, d, hne, hc, hd⟩ := htwo
+  cases phi with
+  | nil =>
+      simp at hc
+  | cons first rest =>
+      cases rest with
+      | nil =>
+          have hec : c = first := by simpa using hc
+          have hed : d = first := by simpa using hd
+          exact False.elim (hne (hec.trans hed.symm))
+      | cons second tail =>
+          simp
+
+theorem canonicalBranch_allVariablesOccur {n : ℕ}
+    (query : CNF n → Bool) (phi : CNF n) (i : Fin n)
+    (hall : AllVariablesOccur phi) :
+    AllVariablesOccur (chooseCanonicalBranch query phi i) := by
+  cases hq : query (imposeCanonical phi i false) with
+  | false =>
+      simpa [chooseCanonicalBranch, hq] using
+        imposeCanonical_allVariablesOccur phi i true hall
+  | true =>
+      simpa [chooseCanonicalBranch, hq] using
+        imposeCanonical_allVariablesOccur phi i false hall
+
+theorem canonicalBranch_twoDistinct {n : ℕ}
+    (query : CNF n → Bool) (phi : CNF n) (i : Fin n)
+    (htwo : HasTwoDistinctClauses phi) :
+    HasTwoDistinctClauses (chooseCanonicalBranch query phi i) := by
+  cases hq : query (imposeCanonical phi i false) with
+  | false =>
+      simpa [chooseCanonicalBranch, hq] using
+        imposeCanonical_twoDistinct phi i true htwo
+  | true =>
+      simpa [chooseCanonicalBranch, hq] using
+        imposeCanonical_twoDistinct phi i false htwo
+
+theorem canonicalRun_allVariablesOccur {n : ℕ}
+    (query : CNF n → Bool) :
+    ∀ (indices : List (Fin n)) (phi : CNF n),
+      AllVariablesOccur phi →
+      AllVariablesOccur (canonicalRun query phi indices).1 := by
+  intro indices
+  induction indices with
+  | nil =>
+      intro phi h
+      simpa [canonicalRun] using h
+  | cons i rest ih =>
+      intro phi h
+      have hnext := canonicalBranch_allVariablesOccur query phi i h
+      simpa [canonicalRun] using ih (chooseCanonicalBranch query phi i) hnext
+
+theorem canonicalRun_twoDistinct {n : ℕ}
+    (query : CNF n → Bool) :
+    ∀ (indices : List (Fin n)) (phi : CNF n),
+      HasTwoDistinctClauses phi →
+      HasTwoDistinctClauses (canonicalRun query phi indices).1 := by
+  intro indices
+  induction indices with
+  | nil =>
+      intro phi h
+      simpa [canonicalRun] using h
+  | cons i rest ih =>
+      intro phi h
+      have hnext := canonicalBranch_twoDistinct query phi i h
+      simpa [canonicalRun] using ih (chooseCanonicalBranch query phi i) hnext
+
+theorem canonicalRun_paper_preconditions {n k : ℕ}
+    (query : CNF n → Bool) (phi : CNF n)
+    (indices : List (Fin n))
+    (hk : 1 ≤ k) (hvalid : WidthNodup k phi)
+    (hall : AllVariablesOccur phi)
+    (htwo : HasTwoDistinctClauses phi) :
+    WidthNodup k (canonicalRun query phi indices).1 ∧
+    AllVariablesOccur (canonicalRun query phi indices).1 ∧
+    2 ≤ (canonicalRun query phi indices).1.length := by
+  constructor
+  · exact canonicalRun_valid query hk indices phi hvalid
+  constructor
+  · exact canonicalRun_allVariablesOccur query indices phi hall
+  · exact twoDistinct_minClauses (canonicalRun query phi indices).1
+      (canonicalRun_twoDistinct query indices phi htwo)
+
 /-!
 ## Differential fixtures from the formally specified CNF evaluator
 

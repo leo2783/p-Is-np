@@ -41,6 +41,10 @@ the larger Lean-generated differential evaluator tests.
 
 The paper's counting theorem additionally assumes n >= 4, at least two
 clauses, all declared variables occurring, and specific input encodings.
+The new AllVariablesOccur and HasTwoDistinctClauses predicates have been
+formally shown to survive every canonical restriction. The final
+canonicalRun_paper_preconditions theorem combines these invariants with
+WidthNodup and derives that the resulting formula still has >= 2 clauses.
 The published proof uses Lean and Mathlib v4.33.1; this project uses
 v4.35.0 and separately imports a TM0 complexity library. This addition
 formally bridges input shape and normalization, not the external proof
