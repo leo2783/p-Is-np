@@ -60,7 +60,8 @@ theorem cnf_majority_closure (cs : List Clause) :
         clause_majority_closure c a0.1 a1.1 a2.1
       have hr : evalCNF rest zero = true :=
         ih a0.2 a1.2 a2.2
-      simpa [evalCNF, hc, hr]
+      change (evalClause c zero && evalCNF rest zero) = true
+      simp [hc, hr]
 
 theorem parity_one_hot (k : Fin 3) : parity3 (oneHot k) = true := by
   fin_cases k <;> decide

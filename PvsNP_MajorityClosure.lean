@@ -79,6 +79,8 @@ theorem twoCNF_preserves_majority {n : ℕ}
         simpa [evalCNF, Bool.and_eq_true] using hz
       have hc := clause_preserves_majority c x y z ax.1 ay.1 az.1
       have hr := ih ax.2 ay.2 az.2
-      simpa [evalCNF, hc, hr]
+      change (evalClause c (pointwiseMajority x y z) &&
+        evalCNF rest (pointwiseMajority x y z)) = true
+      simp [hc, hr]
 
 end PvsNP.MajorityClosure
