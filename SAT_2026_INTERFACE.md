@@ -153,3 +153,16 @@ formula with `m` clauses and `n` variables. This abstract cost
 excludes formula encoding, data movement, and machine simulation;
 those must be formalized separately before asserting a machine-time
 bound for the full witness algorithm.
+
+## Executable solver wrapper (variable enumeration only)
+
+The new `countingSolveExecutable` uses `List.finRange n` to construct
+its variable order and therefore has a computable implementation for
+any provided counting procedure. The verified
+`countingSolveExecutable_none_iff`,
+`countingSolveExecutable_some_sound`, and
+`countingSolveExecutable_some_complete` guarantee correct SAT/UNSAT
+answers on the paper-eligible domain, conditional on correct counting.
+`countingSolveExecutableWithCost_calls` proves one count query for UNSAT
+and n+1 for SAT. Enumerating the variable indices is linear-size; the
+solver does not search all assignments to construct a witness.

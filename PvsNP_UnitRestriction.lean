@@ -1691,6 +1691,160 @@ theorem totalCountingOracleBudget_bound {n k : ℕ}
     _ = (n + 1) * T (phi.length + n) := by
       simp [Nat.succ_mul, Nat.add_comm]
 
+
+/-!
+## Executable enumeration of the *indices*, not assignments
+
+\`List.finRange n\` enumerates the n variable names, which is
+linear-size bookkeeping. It avoids the choice-based \`Finset.toList\`
+used in the preceding specification-level wrapper. The full solver
+and its call counter below are executable for any supplied counting
+function. Its proof continues to assume that the count is correct
+on the eligible domain; no candidate assignment search is performed.
+-/
+
+def countingSolveExecutable {n : ℕ}
+    (count : CNF n → ℕ) (phi : CNF n) :
+    Option (Fin n → Bool) :=
+  if countDecision count phi then
+    some (unitWitness
+      (canonicalRun (countDecision count) phi (List.finRange n)).1)
+  else none
+
+theorem paper_counting_extracted_witness_finRange {n k : ℕ}
+    (count : CNF n → ℕ)
+    (hcount : ∀ psi, PaperEligible k psi →
+      count psi = paperCount psi)
+    (hk : 1 ≤ k) (phi : CNF n)
+    (hvalid : PaperEligible k phi)
+    (hsat : Satisfiable phi) :
+    evalCNF phi
+      (unitWitness
+        (canonicalRun (countDecision count) phi (List.finRange n)).1) = true := by
+  let finalCNF : CNF n :=
+    (canonicalRun (countDecision count) phi (List.finRange n)).1
+  have hsatFinal : Satisfiable finalCNF :=
+    canonicalRun_sat_paper (countDecision count)
+      (countDecision_paperEligible_correct count hcount)
+      hk (List.finRange n) phi hvalid hsat
+  obtain ⟨a, ha⟩ := hsatFinal
+  have hunit : ∀ i : Fin n,
+      ∃ bit : Bool, ([(i, bit)] : Clause n) ∈ finalCNF := by
+    intro i
+    exact canonicalRun_has_unit
+      (countDecision count) (List.finRange n) phi i
+      (List.mem_finRange i)
+  have hagree : a = unitWitness finalCNF := by
+    funext i
+    exact unitWitness_agrees_with_model finalCNF a ha hunit i
+  have hsource : evalCNF phi a = true :=
+    canonicalRun_entails (countDecision count)
+      (List.finRange n) phi a ha
+  rw [hagree] at hsource
+  exact hsource
+
+theorem countingSolveExecutable_none_iff {n k : ℕ}
+    (count : CNF n → ℕ)
+    (hcount : ∀ psi, PaperEligible k psi →
+      count psi = paperCount psi)
+    (phi : CNF n) (hvalid : PaperEligible k phi) :
+    countingSolveExecutable count phi = none ↔ ¬ Satisfiable phi := by
+  constructor
+  · intro hnone hsat
+    have hdec : countDecision count phi = true :=
+      (countDecision_paperEligible_correct count hcount phi hvalid).mpr hsat
+    simp [countingSolveExecutable, hdec] at hnone
+  · intro hnot
+    have hdec : countDecision count phi = false := by
+      cases hq : countDecision count phi with
+      | false =>
+          rfl
+      | true =>
+          exact False.elim
+            (hnot ((countDecision_paperEligible_correct count hcount phi hvalid).mp hq))
+    simp [countingSolveExecutable, hdec]
+
+theorem countingSolveExecutable_some_sound {n k : ℕ}
+    (count : CNF n → ℕ)
+    (hcount : ∀ psi, PaperEligible k psi →
+      count psi = paperCount psi)
+    (hk : 1 ≤ k) (phi : CNF n)
+    (hvalid : PaperEligible k phi)
+    (a : Fin n → Bool)
+    (hresult : countingSolveExecutable count phi = some a) :
+    evalCNF phi a = true := by
+  have hdec : countDecision count phi = true := by
+    cases hq : countDecision count phi with
+    | false =>
+        simp [countingSolveExecutable, hq] at hresult
+    | true =>
+        rfl
+  have hsat : Satisfiable phi :=
+    (countDecision_paperEligible_correct count hcount phi hvalid).mp hdec
+  have heq :
+      unitWitness
+        (canonicalRun (countDecision count) phi (List.finRange n)).1 = a := by
+    simpa [countingSolveExecutable, hdec] using hresult
+  rw [← heq]
+  exact paper_counting_extracted_witness_finRange
+    count hcount hk phi hvalid hsat
+
+theorem countingSolveExecutable_some_complete {n k : ℕ}
+    (count : CNF n → ℕ)
+    (hcount : ∀ psi, PaperEligible k psi →
+      count psi = paperCount psi)
+    (hk : 1 ≤ k) (phi : CNF n)
+    (hvalid : PaperEligible k phi)
+    (hsat : Satisfiable phi) :
+    ∃ a : Fin n → Bool,
+      countingSolveExecutable count phi = some a ∧
+      evalCNF phi a = true := by
+  have hdec : countDecision count phi = true :=
+    (countDecision_paperEligible_correct count hcount phi hvalid).mpr hsat
+  refine ⟨unitWitness
+    (canonicalRun (countDecision count) phi (List.finRange n)).1, ?_, ?_⟩
+  · simp [countingSolveExecutable, hdec]
+  · exact paper_counting_extracted_witness_finRange
+      count hcount hk phi hvalid hsat
+
+def countingSolveExecutableWithCost {n : ℕ}
+    (count : CNF n → ℕ) (phi : CNF n) :
+    Option (Fin n → Bool) × ℕ :=
+  if countDecision count phi then
+    let result := canonicalRun (countDecision count) phi (List.finRange n)
+    (some (unitWitness result.1), result.2 + 1)
+  else (none, 1)
+
+theorem countingSolveExecutableWithCost_calls {n k : ℕ}
+    (count : CNF n → ℕ)
+    (hcount : ∀ psi, PaperEligible k psi →
+      count psi = paperCount psi)
+    (phi : CNF n) (hvalid : PaperEligible k phi) :
+    (Satisfiable phi →
+      (countingSolveExecutableWithCost count phi).2 = n + 1) ∧
+    (¬ Satisfiable phi →
+      (countingSolveExecutableWithCost count phi).2 = 1) := by
+  constructor
+  · intro hsat
+    have hdec : countDecision count phi = true :=
+      (countDecision_paperEligible_correct count hcount phi hvalid).mpr hsat
+    calc
+      (countingSolveExecutableWithCost count phi).2 =
+          (canonicalRun (countDecision count) phi (List.finRange n)).2 + 1 := by
+            simp [countingSolveExecutableWithCost, hdec]
+      _ = n + 1 := by
+        rw [canonicalRun_calls]
+        simp
+  · intro hnot
+    have hdec : countDecision count phi = false := by
+      cases hq : countDecision count phi with
+      | false =>
+          rfl
+      | true =>
+          exact False.elim
+            (hnot ((countDecision_paperEligible_correct count hcount phi hvalid).mp hq))
+    simp [countingSolveExecutableWithCost, hdec]
+
 /-!
 ## Differential fixtures from the formally specified CNF evaluator
 
