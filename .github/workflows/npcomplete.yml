@@ -3,11 +3,13 @@ on:
   push:
     paths:
       - 'PvsNP_FormalClasses.lean'
+      - 'PvsNP_ThreeSAT_Restriction.lean'
       - 'lakefile.toml'
       - 'lean-toolchain'
   pull_request:
     paths:
       - 'PvsNP_FormalClasses.lean'
+      - 'PvsNP_ThreeSAT_Restriction.lean'
       - 'lakefile.toml'
       - 'lean-toolchain'
   workflow_dispatch:
@@ -31,3 +33,5 @@ jobs:
           lake build NPComplete
       - name: Prove P = NP iff SAT in P in TM0 complexity classes
         run: lake env lean PvsNP_FormalClasses.lean
+      - name: Verify native ThreeSAT restriction lemmas
+        run: lake env lean PvsNP_ThreeSAT_Restriction.lean

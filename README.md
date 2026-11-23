@@ -54,6 +54,10 @@ v0.5.0 library supply precise TM0 complexity classes and Cook–Levin.
   clause set admits no empty-clause resolution refutation. The proof
   operates symbolically without enumerating all assignments.
 
+- `PvsNP_ThreeSAT_Restriction.lean`: native NPComplete ThreeCNF unit constraints,
+  exact 3-SAT splitting, and boundedness preservation, checked alongside the
+  actual TM0 complexity definitions by the separate dependency workflow.
+
 ## Independent executable checks
 
 `rust/src/main.rs` tests deterministic OR minimax complexity,
