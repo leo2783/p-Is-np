@@ -63,6 +63,18 @@ v0.5.0 library supply precise TM0 complexity classes and Cook–Levin.
   `n` decision queries and `n` unit clauses, plus uniqueness of the
   satisfying assignment on the formula's `n` declared variables.
 
+## Executable Lean–Rust specification bridge
+
+The kernel-checked `evalCNF_impose_iff` specification in
+`PvsNP_UnitRestriction.lean` also exports deterministic semantic fixtures.
+The CI `lean` job evaluates 12,288 original/restricted assignment cases using
+the Lean evaluator, and passes the generated records to an independent
+Rust CNF evaluator in `rust/src/interop.rs`. Both expected semantic values
+are compared with Rust results, including empty formulas, empty clauses and
+unit restrictions. The CI `rust` job separately runs `cargo test` and
+`cargo clippy --all-targets -- -D warnings`; the differential test requires
+the `lean-interop` feature and a real Lean-generated fixture file.
+
 ## Independent executable checks
 
 `rust/src/main.rs` tests deterministic OR minimax complexity,

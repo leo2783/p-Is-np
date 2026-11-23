@@ -217,4 +217,56 @@ theorem restrict_all_variables {n : ℕ}
   · simpa [hlen] using restrictions_calls query vars phi
   · simpa [hlen] using restrictions_size query vars phi
 
+
+/-!
+## Differential fixtures from the formally specified CNF evaluator
+
+The test generator is deterministic and parameterized by an input seed.
+The correctness theorem \`evalCNF_impose_iff\` above is the specification;
+the rows below expose actual Lean evaluator results for Rust differential
+tests. Finite tests supplement, and do not replace, the theorem.
+-/
+private def fixtureIndex (k : Nat) : Fin 4 :=
+  ⟨k % 4, Nat.mod_lt k (by decide)⟩
+
+private def fixtureFormula (seed : Nat) : CNF 4 :=
+  (List.range ((seed * 17 + 1) % 7)).map fun c =>
+    (List.range ((seed + c * 3) % 5)).map fun j =>
+      (fixtureIndex (seed * 13 + c * 5 + j * 7),
+        (seed + 11 * c + 3 * j) % 2 == 0)
+
+private def fixtureAssignment (mask : Nat) (i : Fin 4) : Bool :=
+  mask / (2 ^ i.val) % 2 == 1
+
+private def encodeFixtureLiteral (lit : Literal 4) : String :=
+  let v := toString (lit.1.val + 1)
+  if lit.2 then v else "-" ++ v
+
+private def encodeFixtureClause (clause : Clause 4) : String :=
+  match clause with
+  | [] => "_"
+  | _ => String.intercalate "," (clause.map encodeFixtureLiteral)
+
+private def encodeFixtureFormula (phi : CNF 4) : String :=
+  match phi with
+  | [] => "~"
+  | _ => String.intercalate ";" (phi.map encodeFixtureClause)
+
+def emitFixtures : IO Unit := do
+  IO.println "seed\tmask\tvariable\tbit\tcnf\tbefore\tafter"
+  for seed in List.range 96 do
+    let phi := fixtureFormula seed
+    let encoded := encodeFixtureFormula phi
+    for mask in List.range 16 do
+      let assignment := fixtureAssignment mask
+      for variable in List.range 4 do
+        let i := fixtureIndex variable
+        for bit in ([false, true] : List Bool) do
+          let before := evalCNF phi assignment
+          let after := evalCNF (impose phi i bit) assignment
+          IO.println s!"{seed}\t{mask}\t{variable}\t{bit}\t{encoded}\t{before}\t{after}"
+
 end PvsNP.UnitRestriction
+
+-- Exported only when invoked with 'lean --run'.
+def main : IO Unit := PvsNP.UnitRestriction.emitFixtures

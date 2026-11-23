@@ -160,3 +160,6 @@ mod tests {
         assert!(solve_2sat(1,&[(a,a),(a.neg(),a.neg())]).is_none());
     }
 }
+
+#[cfg(all(test, feature = "lean-interop"))]
+mod interop;
